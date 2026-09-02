@@ -3,18 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spot Apnea Pro - Predittore Tattico</title>
+    <title>Spot Apnea Pro - Pianificazione</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --bg: #1a202c;
-            --surface: #2d3748;
-            --text: #e2e8f0;
-            --accent: #38b2ac;
-            --border: #4a5568;
-            --good: #48bb78;
-            --mid: #ecc94b;
-            --bad: #f56565;
+            --bg: #111827;
+            --surface: #1f2937;
+            --text: #f3f4f6;
+            --accent: #10b981;
+            --accent-hover: #059669;
+            --border: #374151;
+            --good: #34d399;
+            --mid: #fbbf24;
+            --bad: #f87171;
         }
 
         body {
@@ -22,7 +23,7 @@
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 10px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -32,8 +33,334 @@
             width: 100%;
             max-width: 600px;
             background-color: var(--surface);
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 15px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+        }
+
+        h3 { margin-top: 0; font-size: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; }
+
+        .input-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        
+        select, input[type="date"] {
+            background-color: #374151;
+            color: var(--text);
+            border: 1px solid #4b5563;
+            padding: 10px;
+            border-radius: 6px;
+            flex: 1;
+            min-width: 130px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        button { 
+            background-color: var(--accent); 
+            color: #ffffff; 
+            font-weight: bold; 
+            cursor: pointer; 
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover { background-color: var(--accent-hover); transform: translateY(-1px); }
+        button:active { transform: translateY(1px); }
+
+        .gun-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; margin-bottom: 10px;}
+        .gun-item { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #d1d5db; }
+
+        #map { height: 220px; border-radius: 8px; margin-bottom: 15px; border: 2px solid var(--border); z-index: 1; }
+
+        .timeline-container {
+            overflow-x: auto;
+            background-color: #111827;
+            border-radius: 8px;
+            padding: 10px;
+            white-space: nowrap;
+            border: 1px solid var(--border);
+        }
+        
+        .timeline-row { display: flex; border-bottom: 1px solid var(--border); padding: 6px 0; align-items: center; }
+        .timeline-row.no-border { border-bottom: none; }
+        .row-label { width: 75px; flex-shrink: 0; font-size: 11px; font-weight: bold; color: #9ca3af; text-transform: uppercase; }
+        .cell { width: 50px; flex-shrink: 0; text-align: center; font-size: 13px; }
+
+        .advice-panel { 
+            background-color: #065f46; 
+            padding: 15px; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 1px solid #059669;
+        }
+        .highlight { color: #6ee7b7; font-weight: bold; }
+        
+        .score-box {
+            background-color: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .score-val { font-size: 36px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <button id="btn-gps" style="width: 100%; margin-bottom: 12px;">📍 Centra sulla mia posizione</button>
+        <div id="map"></div>
+    </div>
+
+    <div class="container">
+        <h3>Pianificazione Uscita</h3>
+        
+        <div class="input-group">
+            <input type="date" id="target-date">
+        </div>
+
+        <div class="input-group">
+            <select id="time-start">
+                <option value="5">Inizio: 05:00 (Alba)</option>
+                <option value="8" selected>Inizio: 08:00 (Mattino)</option>
+                <option value="13">Inizio: 13:00 (Pomeriggio)</option>
+                <option value="17">Inizio: 17:00 (Tramonto)</option>
+            </select>
+            <select id="depth-selector">
+                <option value="basso" selected>Quota: 0-5m (Schiuma)</option>
+                <option value="medio">Quota: 5-15m (Medio)</option>
+                <option value="profondo">Quota: 15m+ (Profondo)</option>
+            </select>
+        </div>
+
+        <div style="font-size: 12px; margin-bottom: 8px; color: #9ca3af; text-transform: uppercase;">Arsenale:</div>
+        <div class="gun-list" id="gun-inventory"></div>
+    </div>
+
+    <div class="container advice-panel" id="advice-box">
+        Seleziona un punto sulla mappa per elaborare le previsioni per la data indicata.
+    </div>
+
+    <div class="container" id="forecast-container" style="display: none;">
+        <h3>Dettaglio Orario</h3>
+        <div class="timeline-container" id="timeline"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Configurazione iniziale Mappa Satellitare (Esri World Imagery)
+        const map = L.map('map').setView([41.9, 15.0], 9);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: 'Tiles &copy; Esri'
+        }).addTo(map);
+        let marker;
+
+        // Impostazione del calendario: default a oggi, massimo a +14 giorni
+        const dateInput = document.getElementById('target-date');
+        const today = new Date();
+        dateInput.value = today.toISOString().split('T')[0];
+        dateInput.min = dateInput.value;
+        
+        const maxDate = new Date();
+        maxDate.setDate(today.getDate() + 14);
+        dateInput.max = maxDate.toISOString().split('T')[0];
+
+        const myGuns = [
+            { id: "ares85", name: "Salvimar Ares 85", length: 85, types: ["agguato", "basso", "medio"], checked: true },
+            { id: "pred75", name: "Salvimar Predathor 75", length: 75, types: ["tana", "basso", "torbido"], checked: true },
+            { id: "pred100", name: "Salvimar Predathor 100", length: 100, types: ["aspetto", "caduta", "profondo", "medio"], checked: true }
+        ];
+
+        let currentSpotData = null; 
+
+        function renderGuns() {
+            const container = document.getElementById('gun-inventory');
+            container.innerHTML = myGuns.map(gun => `
+                <label class="gun-item">
+                    <input type="checkbox" value="${gun.id}" class="gun-cb" ${gun.checked ? 'checked' : ''} onchange="updateAdvice()">
+                    ${gun.name}
+                </label>
+            `).join('');
+        }
+        renderGuns();
+
+        // Ricalcolo al cambio di qualsiasi parametro
+        document.getElementById('time-start').addEventListener('change', updateAdvice);
+        document.getElementById('depth-selector').addEventListener('change', updateAdvice);
+        
+        // Se si cambia data, ricarica i dati dall'API per il punto corrente
+        dateInput.addEventListener('change', () => {
+            if (marker) {
+                const pos = marker.getLatLng();
+                fetchSpotData(pos.lat, pos.lng);
+            }
+        });
+
+        function getTargetSpecies(depth, month) {
+            const isWarmSeason = (month >= 5 && month <= 10);
+            if (depth === "basso") return isWarmSeason ? "Cefali, Saraghi, prime Spigole autunnali, Salpe" : "Spigole, Polpi, Cefali d'inverno";
+            if (depth === "medio") return isWarmSeason ? "Orate, Saraghi, Corvine, Serra" : "Saraghi, Tordi, Corvine";
+            return isWarmSeason ? "Dentici, Ricciole, Cernie" : "Cernie profonde, Ricciole";
+        }
+
+        function calculateDynamicScore(startHour, depth, avgWave, avgWind) {
+            let score = 50; 
+            
+            if (startHour <= 6 || startHour >= 17) score += 20; 
+            else if (startHour >= 10 && startHour <= 15) score -= 10; 
+            
+            if (depth === "basso") {
+                if (avgWave >= 0.3 && avgWave <= 0.8) score += 25; 
+                else if (avgWave < 0.2) score -= 15; 
+                else if (avgWave > 1.2) score -= 20; 
+            } else if (depth === "medio") {
+                if (avgWave <= 0.5) score += 10;
+                else if (avgWave > 1.0) score -= 15;
+            } else if (depth === "profondo") {
+                if (avgWave < 0.4) score += 15; 
+                else if (avgWave > 0.8) score -= 30; 
+            }
+
+            if (avgWind > 15) score -= 15;
+
+            return Math.max(0, Math.min(100, Math.round(score)));
+        }
+
+        function updateAdvice() {
+            if (!marker || !currentSpotData) return; 
+
+            const startHour = parseInt(document.getElementById('time-start').value);
+            const depth = document.getElementById('depth-selector').value;
+            const targetMonth = new Date(dateInput.value).getMonth();
+            
+            const checkboxes = document.querySelectorAll('.gun-cb:checked');
+            const selectedGunIds = Array.from(checkboxes).map(cb => cb.value);
+            const availableGuns = myGuns.filter(g => selectedGunIds.includes(g.id));
+
+            // Estrae dati medi per l'orario richiesto (usando un blocco di 4 ore)
+            let avgWave = 0, avgWind = 0, count = 0;
+            for(let i = startHour; i < startHour + 4 && i < 24; i++) {
+                avgWave += currentSpotData.waves[i] || 0;
+                avgWind += currentSpotData.winds[i] || 0;
+                count++;
+            }
+            avgWave = count > 0 ? avgWave / count : 0;
+            avgWind = count > 0 ? avgWind / count : 0;
+
+            const score = calculateDynamicScore(startHour, depth, avgWave, avgWind);
+            const species = getTargetSpecies(depth, targetMonth);
+
+            let scoreColor = 'var(--good)';
+            if (score < 45) scoreColor = 'var(--bad)';
+            else if (score < 70) scoreColor = 'var(--mid)';
+
+            let recommendedGun = "Nessun fucile idoneo";
+            if (availableGuns.length > 0) {
+                const bestMatch = availableGuns.find(g => g.types.includes(depth));
+                recommendedGun = bestMatch ? bestMatch.name : availableGuns[0].name + " (Riadattato)";
+            }
+
+            let adviceText = depth === "basso" ? "Prediligi agguato e aspetto coperto. Usa molta zavorra." : 
+                             depth === "medio" ? "Alterna cadute a razzolo sui pianori." : 
+                             "Pesca impegnativa. Richiede compagno di sicurezza.";
+
+            document.getElementById('advice-box').innerHTML = `
+                <div class="score-box">
+                    <div style="font-size:12px; text-transform:uppercase; color:#9ca3af;">Probabilità Incontro</div>
+                    <div class="score-val" style="color:${scoreColor}">${score}%</div>
+                </div>
+                <div><span class="highlight">Target:</span> ${species}</div>
+                <div><span class="highlight">Fucile:</span> ${recommendedGun}</div>
+                <div style="margin-top:5px; border-top: 1px solid rgba(255,255,255,0.1); padding-top:8px;">
+                    <span class="highlight">Tattica:</span> ${adviceText}
+                </div>
+            `;
+        }
+
+        async function fetchSpotData(lat, lng) {
+            document.getElementById('advice-box').innerHTML = "<div style='text-align:center;'>Recupero previsioni per la data selezionata...</div>";
+            
+            try {
+                const selectedDate = dateInput.value;
+                const dateQuery = `&start_date=${selectedDate}&end_date=${selectedDate}`;
+
+                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,surface_pressure,wind_speed_10m&wind_speed_unit=kn${dateQuery}`);
+                const wData = await wRes.json();
+                
+                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height${dateQuery}`);
+                const mData = await mRes.json();
+
+                // Salvataggio di tutte le 24 ore del giorno scelto
+                currentSpotData = {
+                    winds: wData.hourly.wind_speed_10m,
+                    waves: mData.hourly.wave_height.map(w => w || 0)
+                };
+
+                buildTimeline(wData.hourly, mData.hourly);
+                document.getElementById('forecast-container').style.display = 'block';
+                updateAdvice(); 
+
+            } catch (error) {
+                document.getElementById('advice-box').innerText = "Errore. Controlla la connessione o prova un altro punto.";
+            }
+        }
+
+        function buildTimeline(weather, marine) {
+            const container = document.getElementById('timeline');
+            
+            // Mostriamo i dati dalle 05:00 alle 20:00 (orario di luce utile)
+            let html = '';
+            let rowTime = '<div class="timeline-row"><div class="row-label">Ora</div>';
+            let rowWind = '<div class="timeline-row"><div class="row-label">Vento(kn)</div>';
+            let rowWave = '<div class="timeline-row"><div class="row-label">Onda(m)</div>';
+
+            for (let i = 5; i <= 20; i++) {
+                let timeStr = i.toString().padStart(2, '0') + ':00';
+                let windSp = Math.round(weather.wind_speed_10m[i]);
+                let waveH = marine.wave_height[i] ? marine.wave_height[i].toFixed(1) : '-';
+
+                rowTime += `<div class="cell" style="color:var(--accent); font-weight:bold;">${timeStr}</div>`;
+                rowWind += `<div class="cell">${windSp}</div>`;
+                rowWave += `<div class="cell">${waveH}</div>`;
+            }
+
+            container.innerHTML = rowTime + '</div>' + rowWind + '</div>' + rowWave + '</div>';
+        }
+
+        map.on('click', function(e) {
+            const { lat, lng } = e.latlng;
+            if (marker) map.removeLayer(marker);
+            marker = L.marker([lat, lng]).addTo(map);
+            fetchSpotData(lat, lng);
+        });
+
+        document.getElementById('btn-gps').addEventListener('click', () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    map.setView([lat, lng], 13);
+                    if (marker) map.removeLayer(marker);
+                    marker = L.marker([lat, lng]).addTo(map);
+                    fetchSpotData(lat, lng);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
             margin-bottom: 15px;
             box-sizing: border-box;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
