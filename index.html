@@ -94,7 +94,7 @@
                 <option value="profondo">Quota: 15m+ (Profondo)</option>
             </select>
         </div>
-        <span class="gun-limit-text">Seleziona Fucili (Massimo 3)</span>
+        <span class="gun-limit-text">Seleziona Fucili (Massimo 3, il sistema ne consiglierà 2)</span>
         <div class="gun-list-container">
             <div class="gun-list" id="gun-inventory"></div>
         </div>
@@ -124,14 +124,15 @@
         dateInput.min = dateInput.value;
         const maxDate = new Date(); maxDate.setDate(today.getDate() + 14); dateInput.max = maxDate.toISOString().split('T')[0];
 
+        // Aggiunta della proprietà 'length' per poter calcolare quale fucile è più lungo
         const allGuns = [
-            { id: "ares85", name: "Salvimar Ares 85", types: ["agguato", "basso", "medio"], checked: true },
-            { id: "pred75", name: "Salvimar Predathor 75", types: ["tana", "basso", "torbido"], checked: true },
-            { id: "pred100", name: "Salvimar Predathor 100", types: ["aspetto", "caduta", "profondo"], checked: false },
-            { id: "cher90", name: "Cressi Cherokee 90", types: ["agguato", "medio"], checked: false },
-            { id: "snip95", name: "Pathos Sniper 95", types: ["aspetto", "medio", "profondo"], checked: false },
-            { id: "cay75", name: "Omer Cayman 75", types: ["tana", "basso"], checked: false },
-            { id: "carb115", name: "C4 Mr. Carbon 115", types: ["aspetto", "profondo"], checked: false }
+            { id: "ares85", name: "Salvimar Ares 85", length: 85, types: ["agguato", "basso", "medio"], checked: true },
+            { id: "pred75", name: "Salvimar Predathor 75", length: 75, types: ["tana", "basso", "torbido"], checked: true },
+            { id: "pred100", name: "Salvimar Predathor 100", length: 100, types: ["aspetto", "caduta", "profondo"], checked: false },
+            { id: "cher90", name: "Cressi Cherokee 90", length: 90, types: ["agguato", "medio"], checked: false },
+            { id: "snip95", name: "Pathos Sniper 95", length: 95, types: ["aspetto", "medio", "profondo"], checked: false },
+            { id: "cay75", name: "Omer Cayman 75", length: 75, types: ["tana", "basso"], checked: false },
+            { id: "carb115", name: "C4 Mr. Carbon 115", length: 115, types: ["aspetto", "profondo"], checked: false }
         ];
 
         let currentSpotData = null; 
@@ -161,7 +162,6 @@
             if(code <= 48) return "🌫️"; if(code <= 67) return "🌧️"; return "⛈️";
         }
 
-        // Converte i gradi di direzione in una freccia per l'interfaccia
         function getDirectionArrow(degrees) {
             if (degrees === null || degrees === undefined) return "-";
             const arrows = ["⬇️", "↙️", "⬅️", "↖️", "⬆️", "↗️", "➡️", "↘️"];
@@ -205,15 +205,34 @@
             const month = new Date(dateInput.value).getMonth();
             
             const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
-            const availGuns = allGuns.filter(g => selectedGunIds.includes(g.id));
+            
+            // Limitiamo dinamicamente l'elaborazione a un massimo di 2 armi tra quelle spuntate
+            const availGuns = allGuns.filter(g => selectedGunIds.includes(g.id)).slice(0, 2);
 
             const finalScore = calculateRoundedScore(startH, endH, depth, currentSpotData.waves, currentSpotData.winds);
             let scoreColor = finalScore < 45 ? 'var(--bad)' : (finalScore <= 70 ? 'var(--mid)' : 'var(--good)');
-            const recommendedGunNames = availGuns.length > 0 ? availGuns.map(g => g.name).join(" + ") : "Nessuna arma selezionata";
-            
-            let adviceText = startH <= 8 ? "Aspetto nel torbido e agguato contro sole." : 
-                             (startH >= 10 && endH <= 16) ? "Esplora spacche e tane fonde. Cerca tagli freddi." : 
-                             "Aspetto in poca acqua per l'ingresso dei predatori.";
+
+            // LOGICA MULTI-ARMA PER FASCE ORARIE
+            let gunAdvice = "";
+            let midTime = Math.floor((startH + endH) / 2);
+
+            if (availGuns.length === 0) {
+                gunAdvice = "Nessuna arma selezionata nell'inventario.";
+            } else if (availGuns.length === 1) {
+                gunAdvice = `Usa il <b>${availGuns[0].name}</b> per tutta la sessione. Tattica: ${startH <= 8 ? 'sfrutta i tagli di luce' : 'ricerca attiva sul fondo'}.`;
+            } else {
+                // Estrae il fucile più lungo e il più corto per assegnarli in base alla luce
+                let longGun = availGuns.reduce((prev, curr) => (prev.length > curr.length) ? prev : curr);
+                let shortGun = availGuns.find(g => g.id !== longGun.id) || availGuns[1];
+
+                if (startH <= 8 && endH > 10) {
+                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Impugna il <b>${longGun.name}</b>. La luce radente dell'alba è perfetta per l'aspetto ai pesci in caccia.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Passa al <b>${shortGun.name}</b>. Col sole alto il pesce tende a intanarsi, ideale per il razzolo nel torbido.`;
+                } else if (startH >= 10 && endH <= 16) {
+                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Esplora le prime spacche e canaloni con il <b>${shortGun.name}</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Se la zona presenta tagli di corrente fredda, usa il <b>${longGun.name}</b> per aspetti mirati ai pelagici o dentici isolati.`;
+                } else {
+                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Inizia coprendo le batimetriche medie con il <b>${shortGun.name}</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Al calare della luce, sfrutta il <b>${longGun.name}</b> per l'aspetto nel bassofondo e intercettare le prede in rientro.`;
+                }
+            }
 
             document.getElementById('advice-box').innerHTML = `
                 <div style="font-size: 13px; color: var(--accent); font-weight: 600; margin-bottom: 10px;">
@@ -230,12 +249,8 @@
                     </div>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Setup Armi</span>
-                    <span>${recommendedGunNames}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Strategia</span>
-                    <span>${adviceText}</span>
+                    <span class="detail-label">Strategia e Armi Consigliate</span>
+                    <span style="line-height: 1.5; margin-top: 5px;">${gunAdvice}</span>
                 </div>
             `;
         }
@@ -255,7 +270,6 @@
                 const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
-                // Integrazione wave_direction e wave_period per calcolare le correnti
                 const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height,wave_direction,wave_period&start_date=${sDate}&end_date=${sDate}`);
                 const mData = await mRes.json();
 
