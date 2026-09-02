@@ -1,218 +1,297 @@
 <!DOCTYPE html>
-<html lang="it" data-theme="abissi">
+<html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spot Apnea - Mappa e Dati Reali</title>
+    <title>Spot Apnea Pro - Predittore Tattico</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root[data-theme="abissi"] {
-            --bg: #121212; --surface: #1e1e1e; --text: #ffffff;
-            --accent: #0a84ff; --good: #32d74b; --mid: #ffd60a; --bad: #ff453a;
-        }
-        :root[data-theme="oceano"] {
-            --bg: #001b2e; --surface: #003049; --text: #e0fbfc;
-            --accent: #90e0ef; --good: #06d6a0; --mid: #ffd166; --bad: #ef476f;
-        }
-        :root[data-theme="tramonto"] {
-            --bg: #2b1910; --surface: #4a2818; --text: #ffedd8;
-            --accent: #f77f00; --good: #8ac926; --mid: #ffca3a; --bad: #d62828;
+        :root {
+            --bg: #1a202c;
+            --surface: #2d3748;
+            --text: #e2e8f0;
+            --accent: #38b2ac;
+            --border: #4a5568;
+            --good: #48bb78;
+            --mid: #ecc94b;
+            --bad: #f56565;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background-color: var(--bg); color: var(--text);
-            margin: 0; padding: 20px 15px;
-            display: flex; flex-direction: column; align-items: center;
-            transition: background-color 0.4s ease, color 0.4s ease;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
-        .theme-selector, .controls, .time-selector-container {
-            width: 100%; max-width: 400px;
-            display: flex; gap: 5px; margin-bottom: 15px;
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background-color: var(--surface);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
 
-        select, .btn-action, .theme-btn {
-            background-color: var(--surface); color: var(--text);
-            border: 1px solid var(--accent); padding: 10px;
-            border-radius: 6px; cursor: pointer;
+        h3 { margin-top: 0; font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+
+        .input-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+        select, button {
+            background-color: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 8px;
+            border-radius: 6px;
+            flex: 1;
+            min-width: 120px;
+            font-size: 14px;
+        }
+        button { background-color: var(--accent); color: #000; font-weight: bold; cursor: pointer; }
+
+        .gun-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; margin-bottom: 10px;}
+        .gun-item { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+
+        #map { height: 200px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border); z-index: 1; }
+
+        .timeline-container {
+            overflow-x: auto;
+            background-color: var(--bg);
+            border-radius: 8px;
+            padding: 10px;
+            white-space: nowrap;
+            border: 1px solid var(--border);
         }
         
-        .btn-action { background-color: var(--accent); color: #000; font-weight: bold; flex: 1; }
-        .theme-btn { flex: 1; font-size: 12px; }
-        select { flex: 1; outline: none; font-size: 14px; }
+        .timeline-row { display: flex; border-bottom: 1px solid var(--border); padding: 5px 0; align-items: center; }
+        .timeline-row.no-border { border-bottom: none; }
+        .row-label { width: 70px; flex-shrink: 0; font-size: 11px; font-weight: bold; color: #a0aec0; }
+        .cell { width: 50px; flex-shrink: 0; text-align: center; font-size: 13px; }
 
-        #map {
-            width: 100%; max-width: 400px; height: 250px;
-            border-radius: 12px; margin-bottom: 20px;
-            border: 2px solid var(--surface); z-index: 1;
+        .advice-panel { 
+            background-color: #2c5282; 
+            padding: 15px; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
-
-        .panel {
-            background-color: var(--surface); border-radius: 12px;
-            padding: 15px; width: 100%; max-width: 400px;
-            box-sizing: border-box; margin-bottom: 15px;
-        }
-
-        .data-row {
-            display: flex; justify-content: space-between;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding: 10px 0; font-size: 14px; align-items: center;
-        }
-        .data-row:last-child { border-bottom: none; }
-        .val { font-weight: bold; color: var(--accent); text-align: right; max-width: 60%; }
-
-        .result-panel { text-align: center; }
-        .score-val { font-size: 42px; font-weight: bold; margin-top: 5px; }
-        .score-lbl { font-size: 13px; opacity: 0.8; text-transform: uppercase; }
+        .highlight { color: #63b3ed; font-weight: bold; }
         
-        #loading { display: none; color: var(--mid); font-size: 14px; margin-bottom: 10px; font-weight: bold; }
+        .score-box {
+            background-color: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .score-val { font-size: 32px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="theme-selector">
-        <button class="theme-btn" onclick="setTheme('abissi')">🌑 Abissi</button>
-        <button class="theme-btn" onclick="setTheme('oceano')">🌊 Oceano</button>
-        <button class="theme-btn" onclick="setTheme('tramonto')">🌅 Tramonto</button>
+    <div class="container">
+        <button id="btn-gps" style="width: 100%; margin-bottom: 10px;">📍 Trova la mia posizione</button>
+        <div id="map"></div>
     </div>
 
-    <div class="time-selector-container">
-        <select id="time-selector">
-            <option value="alba">Orario: Alba</option>
-            <option value="mattina">Orario: Mattina</option>
-            <option value="pomeriggio">Orario: Pomeriggio</option>
-            <option value="tramonto">Orario: Tramonto</option>
-        </select>
+    <div class="container">
+        <h3>Impostazioni Pescata</h3>
+        
+        <div class="input-group">
+            <select id="time-start">
+                <option value="5">Inizio: 05:00 (Alba)</option>
+                <option value="8" selected>Inizio: 08:00 (Mattino)</option>
+                <option value="13">Inizio: 13:00 (Pomeriggio)</option>
+                <option value="17">Inizio: 17:00 (Tramonto)</option>
+            </select>
+            <select id="depth-selector">
+                <option value="basso" selected>Quota: 0 - 5m (Schiuma/Bassofondo)</option>
+                <option value="medio">Quota: 5 - 15m (Medio fondale)</option>
+                <option value="profondo">Quota: 15m+ (Profondo/Nel blu)</option>
+            </select>
+        </div>
+
+        <div style="font-size: 13px; margin-bottom: 5px; color: #a0aec0;">Arsenale disponibile:</div>
+        <div class="gun-list" id="gun-inventory"></div>
     </div>
 
-    <div class="controls">
-        <button class="btn-action" id="btn-gps">📍 Trova Posizione GPS</button>
+    <div class="container advice-panel" id="advice-box">
+        Seleziona un punto sulla mappa per elaborare le probabilità di cattura.
     </div>
 
-    <div id="loading">Analisi condizioni in corso...</div>
-    <div id="map"></div>
-
-    <div class="panel">
-        <div class="data-row"><span>Condizioni Meteo</span> <span class="val" id="d-weather">N/D</span></div>
-        <div class="data-row"><span>Vento</span> <span class="val" id="d-wind-name">N/D</span></div>
-        <div class="data-row"><span>Altezza Onda</span> <span class="val" id="d-wave">N/D</span></div>
-        <div class="data-row"><span>Forza Risacca</span> <span class="val" id="d-wave-force">N/D</span></div>
-        <div class="data-row"><span>Temp. Esterna</span> <span class="val" id="d-air-temp">N/D</span></div>
-        <div class="data-row"><span>Temp. Acqua (Stima)</span> <span class="val" id="d-water-temp">N/D</span></div>
-        <div class="data-row"><span>Stile Consigliato</span> <span class="val" id="d-style" style="color: var(--good);">Seleziona spot</span></div>
-    </div>
-
-    <div class="panel result-panel">
-        <div class="score-lbl" id="status-txt">Seleziona uno spot sulla mappa</div>
-        <div class="score-val" id="score-display">-</div>
+    <div class="container" id="forecast-container" style="display: none;">
+        <h3>Previsioni Dettagliate (12h)</h3>
+        <div class="timeline-container" id="timeline"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        function setTheme(themeName) { document.documentElement.setAttribute('data-theme', themeName); }
-
-        const map = L.map('map').setView([42.0, 15.0], 8);
+        const map = L.map('map').setView([41.9, 15.0], 7);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
         let marker;
 
-        const winds = ["Tramontana", "Grecale", "Levante", "Scirocco", "Ostro", "Libeccio", "Ponente", "Maestrale"];
-        
-        // Interpreta i codici meteo WMO standard
-        function parseWeatherCode(code) {
-            if(code === 0) return "Sereno ☀️";
-            if(code > 0 && code < 4) return "Parz. Nuvoloso ⛅";
-            if(code >= 45 && code <= 48) return "Nebbia / Foschia 🌫️";
-            if(code >= 51 && code <= 67) return "Pioggia 🌧️";
-            if(code >= 71) return "Neve / Forte maltempo ⛈️";
-            return "Variabile";
+        const myGuns = [
+            { id: "ares85", name: "Salvimar Ares 85", length: 85, types: ["agguato", "basso", "medio"], checked: true },
+            { id: "pred75", name: "Salvimar Predathor 75", length: 75, types: ["tana", "basso", "torbido"], checked: true },
+            { id: "pred100", name: "Salvimar Predathor 100", length: 100, types: ["aspetto", "caduta", "profondo", "medio"], checked: true },
+            { id: "cher90", name: "Cressi Cherokee 90", length: 90, types: ["agguato", "medio"], checked: false }
+        ];
+
+        let currentSpotData = null; // Memorizza i dati meteo per i ricalcoli a caldo
+
+        function renderGuns() {
+            const container = document.getElementById('gun-inventory');
+            container.innerHTML = myGuns.map(gun => `
+                <label class="gun-item">
+                    <input type="checkbox" value="${gun.id}" class="gun-cb" ${gun.checked ? 'checked' : ''} onchange="updateAdvice()">
+                    ${gun.name}
+                </label>
+            `).join('');
+        }
+        renderGuns();
+
+        document.getElementById('time-start').addEventListener('change', updateAdvice);
+        document.getElementById('depth-selector').addEventListener('change', updateAdvice);
+
+        function getTargetSpecies(depth, month) {
+            const isWarmSeason = (month >= 5 && month <= 10);
+            
+            if (depth === "basso") {
+                return isWarmSeason ? "Cefali, Saraghi, prime Spigole autunnali, Salpe grosse" : "Spigole, Polpi, Cefali d'inverno";
+            } else if (depth === "medio") {
+                return isWarmSeason ? "Orate, Saraghi maggiori, Corvine, piccoli Pelagici (Serra/Palamite)" : "Saraghi, Tordi, Corvine intanate";
+            } else {
+                return isWarmSeason ? "Dentici, Ricciole, Cernie, Dotti" : "Cernie profonde, Ricciole di passaggio";
+            }
         }
 
-        // Restituisce un consiglio tattico in base all'orario
-        function updateFishingStyle() {
-            const time = document.getElementById('time-selector').value;
-            const display = document.getElementById('d-style');
-            if (time === 'alba') display.innerText = "Agguato e aspetto in acqua bassa";
-            else if (time === 'mattina') display.innerText = "Pesca in tana o razzolo";
-            else if (time === 'pomeriggio') display.innerText = "Aspetto a quote operative, caduta";
-            else if (time === 'tramonto') display.innerText = "Aspetto in poca acqua, controluce";
+        function calculateDynamicScore(startHour, depth, avgWave, avgWind) {
+            let score = 50; 
+            
+            // Variabile Orario
+            if (startHour <= 6 || startHour >= 17) score += 20; // Alba/Tramonto
+            else if (startHour >= 10 && startHour <= 15) score -= 10; // Ore centrali
+            
+            // Incrocio Quota / Onde
+            if (depth === "basso") {
+                if (avgWave >= 0.3 && avgWave <= 0.8) score += 25; // Ottima risacca per agguato
+                else if (avgWave < 0.2) score -= 15; // Troppo calmo per il bassofondo
+                else if (avgWave > 1.2) score -= 20; // Schiuma ingestibile
+            } 
+            else if (depth === "medio") {
+                if (avgWave <= 0.5) score += 10;
+                else if (avgWave > 1.0) score -= 15;
+            }
+            else if (depth === "profondo") {
+                if (avgWave < 0.4) score += 15; // Necessaria calma per ventilare e recuperare
+                else if (avgWave > 0.8) score -= 30; // Pericoloso nel profondo
+            }
+
+            // Variabile Vento
+            if (avgWind > 15) score -= 15;
+
+            return Math.max(0, Math.min(100, Math.round(score)));
         }
 
-        // Aggiorna lo stile quando si cambia l'orario dal menu
-        document.getElementById('time-selector').addEventListener('change', updateFishingStyle);
+        function updateAdvice() {
+            if (!marker || !currentSpotData) return; 
 
-        // Calcola l'energia dell'onda basandosi su altezza e periodo
-        function calculateWaveForce(height, period) {
-            if (height === 0) return "Assente";
-            const energy = height * period; 
-            if (energy < 1) return "Molto debole (Calmo)";
-            if (energy < 3) return "Moderata (Onda corta)";
-            if (energy < 6) return "Forte (Risacca presente)";
-            return "Pericolosa (Mare formato)";
+            const startHour = parseInt(document.getElementById('time-start').value);
+            const depth = document.getElementById('depth-selector').value;
+            const currentMonth = new Date().getMonth();
+            
+            const checkboxes = document.querySelectorAll('.gun-cb:checked');
+            const selectedGunIds = Array.from(checkboxes).map(cb => cb.value);
+            const availableGuns = myGuns.filter(g => selectedGunIds.includes(g.id));
+
+            // Stima delle condizioni medie dalla lettura API
+            const avgWave = currentSpotData.waves[0] || 0;
+            const avgWind = currentSpotData.winds[0] || 0;
+
+            const score = calculateDynamicScore(startHour, depth, avgWave, avgWind);
+            const species = getTargetSpecies(depth, currentMonth);
+
+            let scoreColor = 'var(--good)';
+            if (score < 45) scoreColor = 'var(--bad)';
+            else if (score < 70) scoreColor = 'var(--mid)';
+
+            let recommendedGun = "Nessun fucile idoneo";
+            if (availableGuns.length > 0) {
+                const bestMatch = availableGuns.find(g => g.types.includes(depth));
+                recommendedGun = bestMatch ? bestMatch.name : availableGuns[0].name + " (Riadattato)";
+            }
+
+            let adviceText = "";
+            if (depth === "basso") adviceText = "Prediligi l'agguato dinamico e l'aspetto coperto tra le rocce. Usa molta zavorra per restare incollato al fondo.";
+            else if (depth === "medio") adviceText = "Alterna cadute silenziose a razzolo o aspetti sui pianori. Cerca i tagli freddi.";
+            else adviceText = "Pesca impegnativa. Richiede compagno di sicurezza sulla verticale. Attenzione alle correnti.";
+
+            document.getElementById('advice-box').innerHTML = `
+                <div class="score-box">
+                    <div style="font-size:12px; text-transform:uppercase; color:#a0aec0;">Probabilità Incontro</div>
+                    <div class="score-val" style="color:${scoreColor}">${score}%</div>
+                </div>
+                <div><span class="highlight">Target Attesi:</span> ${species}</div>
+                <div><span class="highlight">Arma Consigliata:</span> ${recommendedGun}</div>
+                <div style="margin-top:5px; border-top: 1px solid var(--border); padding-top:8px;">
+                    <span class="highlight">Strategia:</span> ${adviceText}
+                </div>
+            `;
         }
 
         async function fetchSpotData(lat, lng) {
-            const loading = document.getElementById('loading');
-            loading.style.display = 'block';
+            document.getElementById('advice-box').innerHTML = "<div style='text-align:center;'>Elaborazione dati in corso...</div>";
             
             try {
-                // Fetch Meteo (Aggiunti temperature_2m e weather_code)
-                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=wind_speed_10m,wind_direction_10m,temperature_2m,weather_code&wind_speed_unit=kn`);
+                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,surface_pressure,wind_speed_10m&wind_speed_unit=kn&forecast_days=1`);
                 const wData = await wRes.json();
                 
-                // Fetch Dati Marini (Aggiunto wave_period)
-                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&current=wave_height,wave_period`);
+                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height&forecast_days=1`);
                 const mData = await mRes.json();
 
-                const windDir = wData.current.wind_direction_10m;
-                const windSpeed = wData.current.wind_speed_10m;
-                const airTemp = wData.current.temperature_2m;
-                const weatherCode = wData.current.weather_code;
+                const currentHour = new Date().getHours();
                 
-                const waveHeight = mData.current.wave_height || 0; 
-                const wavePeriod = mData.current.wave_period || 0;
+                // Salvataggio dei dati orari correnti per il calcolo del punteggio
+                currentSpotData = {
+                    winds: wData.hourly.wind_speed_10m.slice(currentHour, currentHour + 12),
+                    waves: mData.hourly.wave_height.map(w => w || 0).slice(currentHour, currentHour + 12)
+                };
 
-                // Stima approssimativa della temperatura dell'acqua in base a quella esterna
-                const waterTempEstimate = (airTemp * 0.6) + 7;
-
-                // Aggiornamento DOM
-                document.getElementById('d-weather').innerText = parseWeatherCode(weatherCode);
-                document.getElementById('d-wind-name').innerText = `${winds[Math.round(windDir / 45) % 8]} a ${windSpeed} kn`;
-                document.getElementById('d-wave').innerText = waveHeight ? `${waveHeight.toFixed(1)} m` : 'N/D';
-                document.getElementById('d-wave-force').innerText = calculateWaveForce(waveHeight, wavePeriod);
-                document.getElementById('d-air-temp').innerText = `${airTemp}°C`;
-                document.getElementById('d-water-temp').innerText = waveHeight > 0 ? `~${waterTempEstimate.toFixed(1)}°C` : 'N/D';
-                
-                updateFishingStyle();
-                calculateScore(windSpeed, waveHeight);
+                buildTimeline(wData.hourly, mData.hourly, currentHour);
+                document.getElementById('forecast-container').style.display = 'block';
+                updateAdvice(); 
 
             } catch (error) {
-                alert('Errore API. Assicurati di selezionare un punto in mare aperto.');
-            } finally {
-                loading.style.display = 'none';
+                document.getElementById('advice-box').innerText = "Errore di connessione. Selezionare un punto valido in mare.";
             }
         }
 
-        function calculateScore(speed, wave) {
-            let score = 100;
-            if (speed > 5) score -= (speed * 1.5);
-            if (speed > 15) score -= 30;
-            if (wave > 0.3) score -= (wave * 20);
-            if (wave > 1.2) score -= 40;
+        function buildTimeline(weather, marine, currentHour) {
+            const container = document.getElementById('timeline');
+            let html = '';
+            let rowTime = '<div class="timeline-row"><div class="row-label">Ora</div>';
+            let rowWind = '<div class="timeline-row"><div class="row-label">Vento (kn)</div>';
+            let rowWave = '<div class="timeline-row"><div class="row-label">Onda (m)</div>';
 
-            score = Math.max(0, Math.min(100, Math.round(score)));
-            
-            const display = document.getElementById('score-display');
-            const txt = document.getElementById('status-txt');
-            display.innerText = `${score}%`;
+            for (let i = currentHour; i < currentHour + 12 && i < 24; i++) {
+                let timeStr = i.toString().padStart(2, '0') + ':00';
+                let windSp = Math.round(weather.wind_speed_10m[i]);
+                let waveH = marine.wave_height[i] ? marine.wave_height[i].toFixed(1) : '-';
 
-            if (score >= 70) {
-                display.style.color = 'var(--good)'; txt.innerText = 'Condizioni Ottimali';
-            } else if (score >= 40) {
-                display.style.color = 'var(--mid)'; txt.innerText = 'Condizioni Accettabili';
-            } else {
-                display.style.color = 'var(--bad)'; txt.innerText = 'Sconsigliato / Torbida';
+                rowTime += `<div class="cell" style="color:var(--accent); font-weight:bold;">${timeStr}</div>`;
+                rowWind += `<div class="cell">${windSp}</div>`;
+                rowWave += `<div class="cell">${waveH}</div>`;
             }
+
+            container.innerHTML = rowTime + '</div>' + rowWind + '</div>' + rowWave + '</div>';
         }
 
         map.on('click', function(e) {
@@ -222,26 +301,16 @@
             fetchSpotData(lat, lng);
         });
 
-        // Gestione avanzata errori GPS
         document.getElementById('btn-gps').addEventListener('click', () => {
             if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    pos => {
-                        const lat = pos.coords.latitude;
-                        const lng = pos.coords.longitude;
-                        map.setView([lat, lng], 12);
-                        if (marker) map.removeLayer(marker);
-                        marker = L.marker([lat, lng]).addTo(map);
-                        fetchSpotData(lat, lng);
-                    }, 
-                    error => {
-                        if(error.code === 1) {
-                            alert("Permesso negato: controlla se stai aprendo il file in locale (file://) o se hai bloccato il GPS nel browser.");
-                        } else {
-                            alert("Errore nel rilevamento della posizione.");
-                        }
-                    }
-                );
+                navigator.geolocation.getCurrentPosition(pos => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    map.setView([lat, lng], 12);
+                    if (marker) map.removeLayer(marker);
+                    marker = L.marker([lat, lng]).addTo(map);
+                    fetchSpotData(lat, lng);
+                });
             }
         });
     </script>
