@@ -3,74 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spot Apnea Pro - Pianificazione</title>
+    <title>Spot Apnea - Minimal Planner</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --bg: #111827; --surface: #1f2937; --text: #f3f4f6;
-            --accent: #10b981; --accent-hover: #059669; --border: #374151;
-            --good: #34d399; --mid: #fbbf24; --bad: #f87171;
+            --bg: #0f1115; --surface: #181a20; --text: #e2e8f0; --text-muted: #64748b;
+            --accent: #3b82f6; --good: #10b981; --mid: #f59e0b; --bad: #ef4444; --border: #272a33;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg); color: var(--text);
             margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center;
         }
 
         .container {
             width: 100%; max-width: 600px; background-color: var(--surface);
-            border-radius: 10px; padding: 15px; margin-bottom: 15px;
-            box-sizing: border-box; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); border: 1px solid var(--border);
+            border-radius: 8px; padding: 20px; margin-bottom: 15px;
+            box-sizing: border-box; border: 1px solid var(--border);
         }
 
-        h3 { margin-top: 0; font-size: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; }
+        h3 { margin: 0 0 15px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
 
-        .input-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .input-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
         
         select, input[type="date"] {
-            background-color: #374151; color: var(--text); border: 1px solid #4b5563;
-            padding: 10px; border-radius: 6px; flex: 1; min-width: 130px; font-size: 14px; outline: none;
+            background-color: var(--bg); color: var(--text); border: 1px solid var(--border);
+            padding: 10px; border-radius: 6px; flex: 1; min-width: 130px; font-size: 14px; outline: none; -webkit-appearance: none;
         }
 
         button { 
-            background-color: var(--accent); color: #ffffff; font-weight: bold; cursor: pointer; border: none;
-            padding: 12px; border-radius: 6px; transition: all 0.2s ease; text-transform: uppercase; font-size: 13px;
+            background-color: var(--text); color: var(--bg); font-weight: 600; cursor: pointer; border: none;
+            padding: 12px; border-radius: 6px; width: 100%; transition: opacity 0.2s; font-size: 14px;
         }
-        button:hover { background-color: var(--accent-hover); }
+        button:active { opacity: 0.8; }
 
-        .gun-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; margin-bottom: 10px;}
-        .gun-item { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #d1d5db; }
+        .gun-list-container { max-height: 120px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 10px; background-color: var(--bg); }
+        .gun-list { display: grid; grid-template-columns: 1fr; gap: 10px; font-size: 13px; }
+        .gun-item { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1; }
+        .gun-limit-text { font-size: 11px; color: var(--accent); margin-bottom: 5px; display: block; }
 
-        #map { height: 250px; border-radius: 8px; margin-bottom: 15px; border: 2px solid var(--border); z-index: 1; }
+        #map { height: 200px; border-radius: 6px; margin-bottom: 15px; border: 1px solid var(--border); z-index: 1; filter: grayscale(20%) contrast(1.1); }
 
-        .timeline-container { overflow-x: auto; background-color: #111827; border-radius: 8px; padding: 10px; white-space: nowrap; border: 1px solid var(--border); }
-        .timeline-row { display: flex; border-bottom: 1px solid var(--border); padding: 6px 0; align-items: center; }
+        .result-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+        .score-block { display: flex; flex-direction: column; }
+        .score-val { font-size: 42px; font-weight: 300; line-height: 1; }
+        .score-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-top: 4px; }
+        .fish-block { text-align: right; max-width: 60%; }
+        .fish-list { font-size: 13px; color: var(--text); line-height: 1.4; }
+        .detail-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; font-size: 13px; }
+        .detail-label { color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
+
+        .timeline-container { overflow-x: auto; padding-bottom: 5px; }
+        .timeline-row { display: flex; border-bottom: 1px solid var(--border); padding: 8px 0; align-items: center; }
         .timeline-row.no-border { border-bottom: none; }
-        .row-label { width: 75px; flex-shrink: 0; font-size: 11px; font-weight: bold; color: #9ca3af; text-transform: uppercase; }
-        .cell { width: 50px; flex-shrink: 0; text-align: center; font-size: 13px; }
-
-        .advice-panel { background-color: #065f46; padding: 15px; border-radius: 8px; font-size: 14px; line-height: 1.6; display: flex; flex-direction: column; gap: 10px; border: 1px solid #059669; }
-        .highlight { color: #6ee7b7; font-weight: bold; }
-        
-        .score-box { background-color: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05); }
-        .score-val { font-size: 36px; font-weight: bold; }
-        .location-name { font-size: 16px; color: #fff; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; text-align: center; }
-        .sun-time { font-size: 13px; color: #fbbf24; text-align: center; font-weight: bold; margin-top: 5px; }
+        .row-label { width: 70px; flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
+        .cell { width: 50px; flex-shrink: 0; text-align: center; font-size: 12px; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <button id="btn-gps" style="width: 100%; margin-bottom: 12px;">📍 Centra sulla mia posizione</button>
-        <div id="map"></div>
+    <div class="container" style="padding: 10px;">
+        <button id="btn-gps">📍 Usa Posizione Attuale</button>
     </div>
+    
+    <div id="map" style="width: 100%; max-width: 600px;"></div>
 
     <div class="container">
-        <h3>1. Data e Orario</h3>
-        <div class="input-group">
-            <input type="date" id="target-date">
-        </div>
+        <h3>Pianificazione</h3>
+        <div class="input-group"><input type="date" id="target-date"></div>
         <div class="input-group">
             <select id="time-start">
                 <option value="5">Dalle: 05:00</option>
@@ -86,8 +87,6 @@
                 <option value="20">Alle: 20:00</option>
             </select>
         </div>
-
-        <h3 style="margin-top:15px;">2. Operatività</h3>
         <div class="input-group">
             <select id="depth-selector">
                 <option value="basso" selected>Quota: 0-5m (Schiuma)</option>
@@ -95,17 +94,20 @@
                 <option value="profondo">Quota: 15m+ (Profondo)</option>
             </select>
         </div>
-
-        <div style="font-size: 12px; margin-bottom: 8px; color: #9ca3af; text-transform: uppercase;">Mio Arsenale:</div>
-        <div class="gun-list" id="gun-inventory"></div>
+        <span class="gun-limit-text">Seleziona Fucili (Massimo 3)</span>
+        <div class="gun-list-container">
+            <div class="gun-list" id="gun-inventory"></div>
+        </div>
     </div>
 
-    <div class="container advice-panel" id="advice-box">
-        Seleziona un punto sulla mappa per elaborare il piano tattico.
+    <div class="container" id="advice-box">
+        <div style="text-align: center; color: var(--text-muted); font-size: 13px;">
+            Tocca uno spot sulla mappa per calcolare il piano.
+        </div>
     </div>
 
     <div class="container" id="forecast-container" style="display: none;">
-        <h3>Dettaglio Meteo/Mare</h3>
+        <h3>Meteo & Mare</h3>
         <div class="timeline-container" id="timeline"></div>
     </div>
 
@@ -122,19 +124,30 @@
         dateInput.min = dateInput.value;
         const maxDate = new Date(); maxDate.setDate(today.getDate() + 14); dateInput.max = maxDate.toISOString().split('T')[0];
 
-        const myGuns = [
-            { id: "ares85", name: "Ares 85", length: 85, types: ["agguato", "basso", "medio"], checked: true },
-            { id: "pred75", name: "Predathor 75", length: 75, types: ["tana", "basso", "torbido"], checked: true },
-            { id: "pred100", name: "Predathor 100", length: 100, types: ["aspetto", "caduta", "profondo"], checked: true }
+        const allGuns = [
+            { id: "ares85", name: "Salvimar Ares 85", types: ["agguato", "basso", "medio"], checked: true },
+            { id: "pred75", name: "Salvimar Predathor 75", types: ["tana", "basso", "torbido"], checked: true },
+            { id: "pred100", name: "Salvimar Predathor 100", types: ["aspetto", "caduta", "profondo"], checked: false },
+            { id: "cher90", name: "Cressi Cherokee 90", types: ["agguato", "medio"], checked: false },
+            { id: "snip95", name: "Pathos Sniper 95", types: ["aspetto", "medio", "profondo"], checked: false },
+            { id: "cay75", name: "Omer Cayman 75", types: ["tana", "basso"], checked: false },
+            { id: "carb115", name: "C4 Mr. Carbon 115", types: ["aspetto", "profondo"], checked: false }
         ];
 
         let currentSpotData = null; 
 
         function renderGuns() {
             const container = document.getElementById('gun-inventory');
-            container.innerHTML = myGuns.map(gun => `
-                <label class="gun-item"><input type="checkbox" value="${gun.id}" class="gun-cb" ${gun.checked ? 'checked' : ''} onchange="updateAdvice()">${gun.name}</label>
+            container.innerHTML = allGuns.map(gun => `
+                <label class="gun-item"><input type="checkbox" value="${gun.id}" class="gun-cb" ${gun.checked ? 'checked' : ''}>${gun.name}</label>
             `).join('');
+
+            document.querySelectorAll('.gun-cb').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    if (document.querySelectorAll('.gun-cb:checked').length > 3) this.checked = false;
+                    else updateAdvice();
+                });
+            });
         }
         renderGuns();
 
@@ -144,21 +157,26 @@
         dateInput.addEventListener('change', () => { if (marker) fetchSpotData(marker.getLatLng().lat, marker.getLatLng().lng); });
 
         function parseWeather(code) {
-            if(code <= 1) return "☀️";
-            if(code <= 3) return "⛅";
-            if(code <= 48) return "🌫️";
-            if(code <= 67) return "🌧️";
-            return "⛈️";
+            if(code <= 1) return "☀️"; if(code <= 3) return "⛅";
+            if(code <= 48) return "🌫️"; if(code <= 67) return "🌧️"; return "⛈️";
         }
 
-        function getTargetSpecies(depth, month) {
+        // Converte i gradi di direzione in una freccia per l'interfaccia
+        function getDirectionArrow(degrees) {
+            if (degrees === null || degrees === undefined) return "-";
+            const arrows = ["⬇️", "↙️", "⬅️", "↖️", "⬆️", "↗️", "➡️", "↘️"];
+            return arrows[Math.round(degrees / 45) % 8];
+        }
+
+        function getTargetSpeciesArray(depth, month) {
             const isWarm = (month >= 5 && month <= 10);
-            if (depth === "basso") return isWarm ? "Cefali, Saraghi, prime Spigole, Salpe" : "Spigole, Polpi, Cefali";
-            if (depth === "medio") return isWarm ? "Orate, Saraghi, Corvine, Serra" : "Saraghi, Tordi, Corvine";
-            return isWarm ? "Dentici, Ricciole, Cernie" : "Cernie profonde, Ricciole";
+            let fishList = depth === "basso" ? (isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Mormora", "Triglia", "Orata", "Muggine", "Seppia", "Lecia"] : ["Spigola", "Polpo", "Cefalo", "Seppia", "Sarago", "Mormora", "Rombo", "Triglia", "Grongo", "Salpa"])
+                       : depth === "medio" ? (isWarm ? ["Orata", "Sarago", "Corvina", "Serra", "Barracuda", "Dentice", "Palamita", "Cefalo", "Tanuta", "Cernia"] : ["Sarago", "Tordo", "Corvina", "Polpo", "Grongo", "Murena", "Spigola", "Seppia", "Dentice", "Orata"])
+                       : (isWarm ? ["Dentice", "Ricciola", "Cernia", "Dotto", "Palamita", "Tonno", "Barracuda", "Corvina", "Sarago", "Tanuta"] : ["Cernia", "Ricciola", "Dentice", "Corvina", "Tordo", "Grongo", "Sarago", "Pagro", "Tanuta", "Dotto"]);
+            return fishList.slice(0, 10); 
         }
 
-        function calculateDynamicScore(startH, endH, depth, waves, winds) {
+        function calculateRoundedScore(startH, endH, depth, waves, winds) {
             let score = 50; 
             let avgWave = 0, avgWind = 0, count = 0;
             for(let i = startH; i < endH && i < 24; i++) { avgWave += waves[i]; avgWind += winds[i]; count++; }
@@ -167,20 +185,19 @@
             if (startH <= 7 || endH >= 17) score += 20; 
             if (depth === "basso") {
                 if (avgWave >= 0.3 && avgWave <= 0.8) score += 25; 
-                else if (avgWave < 0.2) score -= 15; 
-                else if (avgWave > 1.2) score -= 20; 
+                else if (avgWave < 0.2) score -= 15; else if (avgWave > 1.2) score -= 20; 
             } else if (depth === "medio") {
                 if (avgWave <= 0.5) score += 10; else if (avgWave > 1.0) score -= 15;
             } else {
                 if (avgWave < 0.4) score += 15; else if (avgWave > 0.8) score -= 30; 
             }
             if (avgWind > 15) score -= 20;
-            return Math.max(0, Math.min(100, Math.round(score)));
+            
+            return Math.round(Math.max(0, Math.min(100, score)) / 5) * 5; 
         }
 
         function updateAdvice() {
             if (!marker || !currentSpotData) return; 
-
             const startH = parseInt(document.getElementById('time-start').value);
             let endH = parseInt(document.getElementById('time-end').value);
             if (endH <= startH) endH = startH + 1; 
@@ -188,118 +205,106 @@
             const month = new Date(dateInput.value).getMonth();
             
             const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
-            const availGuns = myGuns.filter(g => selectedGunIds.includes(g.id));
+            const availGuns = allGuns.filter(g => selectedGunIds.includes(g.id));
 
-            const score = calculateDynamicScore(startH, endH, depth, currentSpotData.waves, currentSpotData.winds);
-            const species = getTargetSpecies(depth, month);
-            let scoreColor = score < 45 ? 'var(--bad)' : (score < 70 ? 'var(--mid)' : 'var(--good)');
-
-            let adviceText = "";
-            let recommendedGun = "";
-
-            const hasAres = availGuns.some(g => g.id === "ares85");
-            const hasPred75 = availGuns.some(g => g.id === "pred75");
-            const hasPred100 = availGuns.some(g => g.id === "pred100");
-
-            if (startH <= 7 && endH >= 10) {
-                adviceText = "Transizione luminosa. Inizia con agguato nel bassofondo alle prime luci, poi spostati su tane o pianori più profondi quando il sole alza la visibilità.";
-                if (hasAres && hasPred75) recommendedGun = "Inizia con l'Ares 85 all'alba. Tieni il Predathor 75 sotto la boa per il razzolo/tana.";
-                else recommendedGun = availGuns.length > 0 ? availGuns[0].name : "Nessun fucile";
-            } else if (startH <= 8) {
-                adviceText = "Luce radente. Concentrati sull'aspetto e agguato contro sole.";
-                recommendedGun = hasAres ? "Ares 85 per massima versatilità" : (availGuns.length > 0 ? availGuns[0].name : "Nessuno");
-            } else if (startH >= 10 && endH <= 16) {
-                adviceText = "Ore centrali. Pesce apatico o intanato. Esplora le spacche o cerca tagli freddi profondi.";
-                if (depth === "profondo" && hasPred100) recommendedGun = "Predathor 100 per caduta e aspetto profondo.";
-                else if (hasPred75) recommendedGun = "Predathor 75 (ideale per esplorare in tana).";
-                else recommendedGun = availGuns.length > 0 ? availGuns[0].name : "Nessuno";
-            } else {
-                adviceText = "Luce in calo. Aspetto in poca acqua per intercettare i predatori in entrata.";
-                recommendedGun = hasAres ? "Ares 85" : (availGuns.length > 0 ? availGuns[0].name : "Nessuno");
-            }
+            const finalScore = calculateRoundedScore(startH, endH, depth, currentSpotData.waves, currentSpotData.winds);
+            let scoreColor = finalScore < 45 ? 'var(--bad)' : (finalScore <= 70 ? 'var(--mid)' : 'var(--good)');
+            const recommendedGunNames = availGuns.length > 0 ? availGuns.map(g => g.name).join(" + ") : "Nessuna arma selezionata";
+            
+            let adviceText = startH <= 8 ? "Aspetto nel torbido e agguato contro sole." : 
+                             (startH >= 10 && endH <= 16) ? "Esplora spacche e tane fonde. Cerca tagli freddi." : 
+                             "Aspetto in poca acqua per l'ingresso dei predatori.";
 
             document.getElementById('advice-box').innerHTML = `
-                <div class="location-name">📍 ${currentSpotData.placeName}</div>
-                <div class="sun-time">🌅 Alba: ${currentSpotData.sunriseTime} | 🌇 Tramonto: ${currentSpotData.sunsetTime}</div>
-                <div class="score-box" style="margin-top:10px;">
-                    <div style="font-size:12px; text-transform:uppercase; color:#9ca3af;">Probabilità Statistica</div>
-                    <div class="score-val" style="color:${scoreColor}">${score}%</div>
+                <div style="font-size: 13px; color: var(--accent); font-weight: 600; margin-bottom: 10px;">
+                    📍 ${currentSpotData.placeName} (Alba: ${currentSpotData.sunriseTime} | Tramonto: ${currentSpotData.sunsetTime})
                 </div>
-                <div><span class="highlight">Target:</span> ${species}</div>
-                <div><span class="highlight">Armi:</span> ${recommendedGun}</div>
-                <div style="margin-top:5px; border-top: 1px solid rgba(255,255,255,0.1); padding-top:8px;">
-                    <span class="highlight">Tattica Fascia Oraria:</span> ${adviceText}
+                <div class="result-header">
+                    <div class="score-block">
+                        <div class="score-val" style="color:${scoreColor}">${finalScore}%</div>
+                        <div class="score-lbl">Probabilità</div>
+                    </div>
+                    <div class="fish-block">
+                        <div class="detail-label">Prede Attese (Max 10)</div>
+                        <div class="fish-list">${getTargetSpeciesArray(depth, month).join(", ")}</div>
+                    </div>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Setup Armi</span>
+                    <span>${recommendedGunNames}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Strategia</span>
+                    <span>${adviceText}</span>
                 </div>
             `;
         }
 
         async function fetchSpotData(lat, lng) {
-            document.getElementById('advice-box').innerHTML = "<div style='text-align:center;'>Analisi meteorologica e astronomica...</div>";
+            document.getElementById('advice-box').innerHTML = "<div style='text-align:center; color: var(--text-muted); font-size: 13px;'>Calcolo condizioni e correnti in corso...</div>";
             
             try {
                 let placeName = "Zona di mare";
                 try {
                     const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
                     const geoData = await geoRes.json();
-                    placeName = geoData.name || geoData.address.village || geoData.address.town || geoData.address.city || "Zona di costa";
+                    placeName = geoData.name || geoData.address.village || geoData.address.town || geoData.address.city || "Zona Costiera";
                 } catch(e) {}
 
                 const sDate = dateInput.value;
                 const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
-                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height&start_date=${sDate}&end_date=${sDate}`);
+                // Integrazione wave_direction e wave_period per calcolare le correnti
+                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height,wave_direction,wave_period&start_date=${sDate}&end_date=${sDate}`);
                 const mData = await mRes.json();
 
                 let srTime = "N/D", ssTime = "N/D";
-                if(wData.daily) {
-                    if(wData.daily.sunrise) {
-                        const srDate = new Date(wData.daily.sunrise[0]);
-                        srTime = srDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    }
-                    if(wData.daily.sunset) {
-                        const ssDate = new Date(wData.daily.sunset[0]);
-                        ssTime = ssDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    }
-                }
+                if(wData.daily && wData.daily.sunrise) srTime = new Date(wData.daily.sunrise[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                if(wData.daily && wData.daily.sunset) ssTime = new Date(wData.daily.sunset[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
                 currentSpotData = {
-                    placeName: placeName, 
-                    sunriseTime: srTime, 
-                    sunsetTime: ssTime,
-                    winds: wData.hourly.wind_speed_10m, 
-                    weather: wData.hourly.weather_code,
-                    waves: mData.hourly.wave_height.map(w => w || 0)
+                    placeName: placeName, sunriseTime: srTime, sunsetTime: ssTime,
+                    winds: wData.hourly.wind_speed_10m, weather: wData.hourly.weather_code,
+                    waves: mData.hourly.wave_height.map(w => w || 0),
+                    waveDir: mData.hourly.wave_direction,
+                    wavePeriod: mData.hourly.wave_period
                 };
 
-                buildTimeline(currentSpotData, sDate);
+                buildTimeline(currentSpotData);
                 document.getElementById('forecast-container').style.display = 'block';
                 updateAdvice(); 
 
             } catch (error) {
-                document.getElementById('advice-box').innerText = "Errore. Riprova selezionando un altro punto.";
+                document.getElementById('advice-box').innerHTML = "<div style='text-align:center; color: var(--bad); font-size: 13px;'>Errore di rete. Riprova.</div>";
             }
         }
 
-        function buildTimeline(data, targetDate) {
+        function buildTimeline(data) {
             const container = document.getElementById('timeline');
             let rowTime = '<div class="timeline-row"><div class="row-label">Ora</div>';
             let rowMeteo = '<div class="timeline-row"><div class="row-label">Cielo</div>';
             let rowWind = '<div class="timeline-row"><div class="row-label">Vento(kn)</div>';
             let rowWave = '<div class="timeline-row"><div class="row-label">Onda(m)</div>';
+            let rowDir = '<div class="timeline-row"><div class="row-label">Dir. Mare</div>';
+            let rowPeriod = '<div class="timeline-row no-border"><div class="row-label">Pot.(sec)</div>';
 
             for (let i = 5; i <= 20; i++) {
                 let timeStr = i.toString().padStart(2, '0') + ':00';
                 let icon = parseWeather(data.weather[i]);
                 let windSp = Math.round(data.winds[i]);
                 let waveH = data.waves[i] > 0 ? data.waves[i].toFixed(1) : '-';
+                let dirArrow = getDirectionArrow(data.waveDir[i]);
+                let periodVal = data.wavePeriod[i] ? Math.round(data.wavePeriod[i]) + 's' : '-';
 
-                rowTime += `<div class="cell" style="color:var(--accent); font-weight:bold;">${timeStr}</div>`;
+                rowTime += `<div class="cell" style="color:var(--text); font-weight:600;">${timeStr}</div>`;
                 rowMeteo += `<div class="cell">${icon}</div>`;
                 rowWind += `<div class="cell">${windSp}</div>`;
                 rowWave += `<div class="cell">${waveH}</div>`;
+                rowDir += `<div class="cell">${dirArrow}</div>`;
+                rowPeriod += `<div class="cell">${periodVal}</div>`;
             }
-            container.innerHTML = rowTime + '</div>' + rowMeteo + '</div>' + rowWind + '</div>' + rowWave + '</div>';
+            container.innerHTML = rowTime + '</div>' + rowMeteo + '</div>' + rowWind + '</div>' + rowWave + '</div>' + rowDir + '</div>' + rowPeriod + '</div>';
         }
 
         map.on('click', e => { if (marker) map.removeLayer(marker); marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map); fetchSpotData(e.latlng.lat, e.latlng.lng); });
