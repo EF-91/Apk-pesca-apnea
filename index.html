@@ -77,7 +77,7 @@
         .gun-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; margin-bottom: 10px;}
         .gun-item { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #d1d5db; }
 
-        #map { height: 220px; border-radius: 8px; margin-bottom: 15px; border: 2px solid var(--border); z-index: 1; }
+        #map { height: 250px; border-radius: 8px; margin-bottom: 15px; border: 2px solid var(--border); z-index: 1; }
 
         .timeline-container {
             overflow-x: auto;
@@ -114,6 +114,7 @@
             border: 1px solid rgba(255,255,255,0.05);
         }
         .score-val { font-size: 36px; font-weight: bold; }
+        .location-name { font-size: 16px; color: #fff; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; text-align: center; }
     </style>
 </head>
 <body>
@@ -159,15 +160,19 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Configurazione iniziale Mappa Satellitare (Esri World Imagery)
-        const map = L.map('map').setView([41.9, 15.0], 9);
+        const map = L.map('map').setView([42.0, 15.0], 9);
+        
+        // Livello 1: Base Satellitare
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 18,
-            attribution: 'Tiles &copy; Esri'
+            maxZoom: 18, attribution: 'Tiles &copy; Esri'
         }).addTo(map);
-        let marker;
 
-        // Impostazione del calendario: default a oggi, massimo a +14 giorni
+        // Livello 2: Etichette con nomi delle località e strade
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18
+        }).addTo(map);
+
+        let marker;
         const dateInput = document.getElementById('target-date');
         const today = new Date();
         dateInput.value = today.toISOString().split('T')[0];
@@ -196,11 +201,9 @@
         }
         renderGuns();
 
-        // Ricalcolo al cambio di qualsiasi parametro
         document.getElementById('time-start').addEventListener('change', updateAdvice);
         document.getElementById('depth-selector').addEventListener('change', updateAdvice);
         
-        // Se si cambia data, ricarica i dati dall'API per il punto corrente
         dateInput.addEventListener('change', () => {
             if (marker) {
                 const pos = marker.getLatLng();
@@ -217,7 +220,6 @@
 
         function calculateDynamicScore(startHour, depth, avgWave, avgWind) {
             let score = 50; 
-            
             if (startHour <= 6 || startHour >= 17) score += 20; 
             else if (startHour >= 10 && startHour <= 15) score -= 10; 
             
@@ -232,9 +234,7 @@
                 if (avgWave < 0.4) score += 15; 
                 else if (avgWave > 0.8) score -= 30; 
             }
-
             if (avgWind > 15) score -= 15;
-
             return Math.max(0, Math.min(100, Math.round(score)));
         }
 
@@ -249,7 +249,6 @@
             const selectedGunIds = Array.from(checkboxes).map(cb => cb.value);
             const availableGuns = myGuns.filter(g => selectedGunIds.includes(g.id));
 
-            // Estrae dati medi per l'orario richiesto (usando un blocco di 4 ore)
             let avgWave = 0, avgWind = 0, count = 0;
             for(let i = startHour; i < startHour + 4 && i < 24; i++) {
                 avgWave += currentSpotData.waves[i] || 0;
@@ -277,6 +276,7 @@
                              "Pesca impegnativa. Richiede compagno di sicurezza.";
 
             document.getElementById('advice-box').innerHTML = `
+                <div class="location-name">📍 Spot: ${currentSpotData.placeName}</div>
                 <div class="score-box">
                     <div style="font-size:12px; text-transform:uppercase; color:#9ca3af;">Probabilità Incontro</div>
                     <div class="score-val" style="color:${scoreColor}">${score}%</div>
@@ -290,9 +290,17 @@
         }
 
         async function fetchSpotData(lat, lng) {
-            document.getElementById('advice-box').innerHTML = "<div style='text-align:center;'>Recupero previsioni per la data selezionata...</div>";
+            document.getElementById('advice-box').innerHTML = "<div style='text-align:center;'>Recupero dati e identificazione località...</div>";
             
             try {
+                // Recupero nome località (Novità!)
+                let placeName = "Mare Aperto";
+                try {
+                    const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+                    const geoData = await geoRes.json();
+                    placeName = geoData.name || geoData.address.village || geoData.address.town || geoData.address.city || geoData.address.county || "Zona di mare";
+                } catch(e) {}
+
                 const selectedDate = dateInput.value;
                 const dateQuery = `&start_date=${selectedDate}&end_date=${selectedDate}`;
 
@@ -302,8 +310,8 @@
                 const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height${dateQuery}`);
                 const mData = await mRes.json();
 
-                // Salvataggio di tutte le 24 ore del giorno scelto
                 currentSpotData = {
+                    placeName: placeName,
                     winds: wData.hourly.wind_speed_10m,
                     waves: mData.hourly.wave_height.map(w => w || 0)
                 };
@@ -319,8 +327,6 @@
 
         function buildTimeline(weather, marine) {
             const container = document.getElementById('timeline');
-            
-            // Mostriamo i dati dalle 05:00 alle 20:00 (orario di luce utile)
             let html = '';
             let rowTime = '<div class="timeline-row"><div class="row-label">Ora</div>';
             let rowWind = '<div class="timeline-row"><div class="row-label">Vento(kn)</div>';
