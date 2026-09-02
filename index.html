@@ -45,12 +45,14 @@
 
         #map { height: 200px; border-radius: 6px; margin-bottom: 15px; border: 1px solid var(--border); z-index: 1; filter: grayscale(20%) contrast(1.1); }
 
-        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
-        .score-block { display: flex; flex-direction: column; align-items: center; }
+        .result-header { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+        .score-row { display: flex; align-items: center; gap: 15px; }
         .score-val { font-size: 48px; font-weight: 300; line-height: 1; }
-        .score-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-top: 4px; }
-        .fish-block { text-align: right; max-width: 60%; }
-        .fish-list { font-size: 13px; color: var(--text); line-height: 1.4; }
+        .score-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+        
+        .fish-integration { background-color: rgba(59, 130, 246, 0.08); border-left: 3px solid var(--accent); padding: 10px; border-radius: 0 6px 6px 0; }
+        .fish-list { font-size: 13px; color: var(--text); line-height: 1.5; }
+
         .detail-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; font-size: 13px; }
         .detail-label { color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
 
@@ -167,7 +169,6 @@
             return arrows[Math.round(degrees / 45) % 8];
         }
 
-        // Calcolo della fase lunare in base alla data
         function getMoonPhase(date) {
             let year = date.getFullYear(), month = date.getMonth() + 1, day = date.getDate();
             if (month < 3) { year--; month += 12; }
@@ -180,12 +181,19 @@
             return "Calante 🌗 (Maree deboli)";
         }
 
+        // Elenco completo e illimitato delle prede per ogni quota e stagione
         function getTargetSpeciesArray(depth, month) {
             const isWarm = (month >= 5 && month <= 10);
-            let fishList = depth === "basso" ? (isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Mormora", "Triglia", "Orata", "Muggine", "Seppia", "Lecia"] : ["Spigola", "Polpo", "Cefalo", "Seppia", "Sarago", "Mormora", "Rombo", "Triglia", "Grongo", "Salpa"])
-                       : depth === "medio" ? (isWarm ? ["Orata", "Sarago", "Corvina", "Serra", "Barracuda", "Dentice", "Palamita", "Cefalo", "Tanuta", "Cernia"] : ["Sarago", "Tordo", "Corvina", "Polpo", "Grongo", "Murena", "Spigola", "Seppia", "Dentice", "Orata"])
-                       : (isWarm ? ["Dentice", "Ricciola", "Cernia", "Dotto", "Palamita", "Tonno", "Barracuda", "Corvina", "Sarago", "Tanuta"] : ["Cernia", "Ricciola", "Dentice", "Corvina", "Tordo", "Grongo", "Sarago", "Pagro", "Tanuta", "Dotto"]);
-            return fishList.slice(0, 10); 
+            if (depth === "basso") {
+                return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Mormora", "Triglia", "Orata", "Muggine", "Seppia", "Lecia stella", "Occhiata", "Leccia"] 
+                              : ["Spigola", "Polpo", "Cefalo", "Seppia", "Sarago", "Mormora", "Rombo", "Triglia", "Grongo", "Salpa", "Calamaro"];
+            } else if (depth === "medio") {
+                return isWarm ? ["Orata", "Sarago", "Corvina", "Serra", "Barracuda", "Dentice", "Palamita", "Cefalo", "Tanuta", "Cernia bruna", "Ricciola di passaggio", "Alici"] 
+                              : ["Sarago", "Tordo", "Corvina", "Polpo", "Grongo", "Murena", "Spigola", "Seppia", "Dentice", "Orata", "Calamaro profondo"];
+            } else {
+                return isWarm ? ["Dentice", "Ricciola", "Cernia", "Dotto", "Palamita", "Tonno", "Barracuda", "Corvina", "Sarago", "Tanuta", "Pesce San Pietro", "Alalunga"] 
+                              : ["Cernia", "Ricciola", "Dentice", "Corvina", "Tordo", "Grongo", "Sarago", "Pagro", "Tanuta", "Dotto", "Nasello"];
+            }
         }
 
         function calculateRoundedScore(startH, endH, depth, waves, winds) {
@@ -219,7 +227,6 @@
             const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
             const availGuns = allGuns.filter(g => selectedGunIds.includes(g.id)).slice(0, 2);
 
-            // Se la zona è AMP, forziamo il punteggio a 0
             let finalScore = currentSpotData.isAmp ? 0 : calculateRoundedScore(startH, endH, depth, currentSpotData.waves, currentSpotData.winds);
             let scoreColor = finalScore < 45 ? 'var(--bad)' : (finalScore <= 70 ? 'var(--mid)' : 'var(--good)');
             if (currentSpotData.isAmp) scoreColor = 'var(--bad)';
@@ -246,7 +253,8 @@
                 }
             }
 
-            // Stampa del pannello HTML
+            const speciesList = currentSpotData.isAmp ? "Nessuna (Zona protetta)" : getTargetSpeciesArray(depth, month).join(", ");
+
             document.getElementById('advice-box').innerHTML = `
                 <div style="font-size: 13px; font-weight: 600; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
                     <div style="margin-bottom: 5px;">📍 ${currentSpotData.placeName}</div>
@@ -260,13 +268,15 @@
                 </div>
                 
                 <div class="result-header">
-                    <div class="score-block">
-                        <div class="score-val" style="color:${scoreColor}">${finalScore}%</div>
-                        <div class="score-lbl">Probabilità</div>
+                    <div class="score-row">
+                        <div class="score-block">
+                            <div class="score-val" style="color:${scoreColor}">${finalScore}%</div>
+                            <div class="score-lbl">Probabilità</div>
+                        </div>
                     </div>
-                    <div class="fish-block">
-                        <div class="detail-label">Prede Attese (Max 10)</div>
-                        <div class="fish-list">${currentSpotData.isAmp ? '-' : getTargetSpeciesArray(depth, month).join(", ")}</div>
+                    <div class="fish-integration">
+                        <div class="detail-label" style="margin-bottom: 4px;">Prede Attese in Zona</div>
+                        <div class="fish-list">${speciesList}</div>
                     </div>
                 </div>
 
@@ -290,7 +300,6 @@
                     const geoData = await geoRes.json();
                     placeName = geoData.name || geoData.address.village || geoData.address.town || geoData.address.city || "Zona Costiera";
                     
-                    // Controllo rudimentale AMP basato sui dati OpenStreetMap
                     let fullName = geoData.display_name ? geoData.display_name.toLowerCase() : "";
                     if (fullName.includes("area marina protetta") || fullName.includes("riserva") || fullName.includes("parco nazionale")) {
                         ampStatus = "❌ Divieto: Area Marina Protetta / Riserva";
