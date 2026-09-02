@@ -45,10 +45,10 @@
 
         #map { height: 200px; border-radius: 6px; margin-bottom: 15px; border: 1px solid var(--border); z-index: 1; filter: grayscale(20%) contrast(1.1); }
 
-        .result-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
-        .score-block { display: flex; flex-direction: column; }
-        .score-val { font-size: 42px; font-weight: 300; line-height: 1; }
-        .score-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-top: 4px; }
+        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+        .score-block { display: flex; flex-direction: column; align-items: center; }
+        .score-val { font-size: 48px; font-weight: 300; line-height: 1; }
+        .score-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-top: 4px; }
         .fish-block { text-align: right; max-width: 60%; }
         .fish-list { font-size: 13px; color: var(--text); line-height: 1.4; }
         .detail-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; font-size: 13px; }
@@ -124,7 +124,6 @@
         dateInput.min = dateInput.value;
         const maxDate = new Date(); maxDate.setDate(today.getDate() + 14); dateInput.max = maxDate.toISOString().split('T')[0];
 
-        // Aggiunta della proprietà 'length' per poter calcolare quale fucile è più lungo
         const allGuns = [
             { id: "ares85", name: "Salvimar Ares 85", length: 85, types: ["agguato", "basso", "medio"], checked: true },
             { id: "pred75", name: "Salvimar Predathor 75", length: 75, types: ["tana", "basso", "torbido"], checked: true },
@@ -168,6 +167,19 @@
             return arrows[Math.round(degrees / 45) % 8];
         }
 
+        // Calcolo della fase lunare in base alla data
+        function getMoonPhase(date) {
+            let year = date.getFullYear(), month = date.getMonth() + 1, day = date.getDate();
+            if (month < 3) { year--; month += 12; }
+            let a = Math.floor(year / 100), b = Math.floor(a / 4), c = 2 - a + b;
+            let jd = c + day + Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) - 1524.5;
+            let age = ((jd - 2451549.5) / 29.53) % 1 * 29.53;
+            if (age < 2 || age > 27) return "Nuova 🌑 (Maree forti)";
+            if (age < 13) return "Crescente 🌓 (Maree deboli)";
+            if (age < 17) return "Piena 🌕 (Maree forti)";
+            return "Calante 🌗 (Maree deboli)";
+        }
+
         function getTargetSpeciesArray(depth, month) {
             const isWarm = (month >= 5 && month <= 10);
             let fishList = depth === "basso" ? (isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Mormora", "Triglia", "Orata", "Muggine", "Seppia", "Lecia"] : ["Spigola", "Polpo", "Cefalo", "Seppia", "Sarago", "Mormora", "Rombo", "Triglia", "Grongo", "Salpa"])
@@ -192,7 +204,6 @@
                 if (avgWave < 0.4) score += 15; else if (avgWave > 0.8) score -= 30; 
             }
             if (avgWind > 15) score -= 20;
-            
             return Math.round(Math.max(0, Math.min(100, score)) / 5) * 5; 
         }
 
@@ -202,42 +213,52 @@
             let endH = parseInt(document.getElementById('time-end').value);
             if (endH <= startH) endH = startH + 1; 
             const depth = document.getElementById('depth-selector').value;
-            const month = new Date(dateInput.value).getMonth();
+            const targetDateObj = new Date(dateInput.value);
+            const month = targetDateObj.getMonth();
             
             const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
-            
-            // Limitiamo dinamicamente l'elaborazione a un massimo di 2 armi tra quelle spuntate
             const availGuns = allGuns.filter(g => selectedGunIds.includes(g.id)).slice(0, 2);
 
-            const finalScore = calculateRoundedScore(startH, endH, depth, currentSpotData.waves, currentSpotData.winds);
+            // Se la zona è AMP, forziamo il punteggio a 0
+            let finalScore = currentSpotData.isAmp ? 0 : calculateRoundedScore(startH, endH, depth, currentSpotData.waves, currentSpotData.winds);
             let scoreColor = finalScore < 45 ? 'var(--bad)' : (finalScore <= 70 ? 'var(--mid)' : 'var(--good)');
+            if (currentSpotData.isAmp) scoreColor = 'var(--bad)';
 
-            // LOGICA MULTI-ARMA PER FASCE ORARIE
             let gunAdvice = "";
             let midTime = Math.floor((startH + endH) / 2);
 
-            if (availGuns.length === 0) {
+            if (currentSpotData.isAmp) {
+                gunAdvice = "<b>ATTENZIONE:</b> Zona interdetta alla pesca in apnea. Non è consentito immergersi con i fucili in questo spot.";
+            } else if (availGuns.length === 0) {
                 gunAdvice = "Nessuna arma selezionata nell'inventario.";
             } else if (availGuns.length === 1) {
                 gunAdvice = `Usa il <b>${availGuns[0].name}</b> per tutta la sessione. Tattica: ${startH <= 8 ? 'sfrutta i tagli di luce' : 'ricerca attiva sul fondo'}.`;
             } else {
-                // Estrae il fucile più lungo e il più corto per assegnarli in base alla luce
                 let longGun = availGuns.reduce((prev, curr) => (prev.length > curr.length) ? prev : curr);
                 let shortGun = availGuns.find(g => g.id !== longGun.id) || availGuns[1];
 
                 if (startH <= 8 && endH > 10) {
-                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Impugna il <b>${longGun.name}</b>. La luce radente dell'alba è perfetta per l'aspetto ai pesci in caccia.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Passa al <b>${shortGun.name}</b>. Col sole alto il pesce tende a intanarsi, ideale per il razzolo nel torbido.`;
+                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Impugna il <b>${longGun.name}</b>. Luce radente, perfetta per l'aspetto.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Passa al <b>${shortGun.name}</b>. Pesce intanato, ideale per il razzolo.`;
                 } else if (startH >= 10 && endH <= 16) {
-                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Esplora le prime spacche e canaloni con il <b>${shortGun.name}</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Se la zona presenta tagli di corrente fredda, usa il <b>${longGun.name}</b> per aspetti mirati ai pelagici o dentici isolati.`;
+                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Esplora le prime spacche con il <b>${shortGun.name}</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Sui tagli freddi, usa il <b>${longGun.name}</b> per aspetti mirati.`;
                 } else {
-                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Inizia coprendo le batimetriche medie con il <b>${shortGun.name}</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Al calare della luce, sfrutta il <b>${longGun.name}</b> per l'aspetto nel bassofondo e intercettare le prede in rientro.`;
+                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Copri le medie batimetriche con il <b>${shortGun.name}</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Sfrutta il <b>${longGun.name}</b> per l'aspetto nel bassofondo al calare del sole.`;
                 }
             }
 
+            // Stampa del pannello HTML
             document.getElementById('advice-box').innerHTML = `
-                <div style="font-size: 13px; color: var(--accent); font-weight: 600; margin-bottom: 10px;">
-                    📍 ${currentSpotData.placeName} (Alba: ${currentSpotData.sunriseTime} | Tramonto: ${currentSpotData.sunsetTime})
+                <div style="font-size: 13px; font-weight: 600; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+                    <div style="margin-bottom: 5px;">📍 ${currentSpotData.placeName}</div>
+                    <div style="color: ${currentSpotData.isAmp ? 'var(--bad)' : 'var(--good)'}; margin-bottom: 5px;">
+                        ${currentSpotData.ampStatus}
+                    </div>
+                    <div style="color: var(--text-muted); font-size: 12px; font-weight: normal;">
+                        🌅 Alba: ${currentSpotData.sunriseTime} | 🌇 Tramonto: ${currentSpotData.sunsetTime} <br>
+                        🌙 Luna: ${getMoonPhase(targetDateObj)}
+                    </div>
                 </div>
+                
                 <div class="result-header">
                     <div class="score-block">
                         <div class="score-val" style="color:${scoreColor}">${finalScore}%</div>
@@ -245,9 +266,10 @@
                     </div>
                     <div class="fish-block">
                         <div class="detail-label">Prede Attese (Max 10)</div>
-                        <div class="fish-list">${getTargetSpeciesArray(depth, month).join(", ")}</div>
+                        <div class="fish-list">${currentSpotData.isAmp ? '-' : getTargetSpeciesArray(depth, month).join(", ")}</div>
                     </div>
                 </div>
+
                 <div class="detail-row">
                     <span class="detail-label">Strategia e Armi Consigliate</span>
                     <span style="line-height: 1.5; margin-top: 5px;">${gunAdvice}</span>
@@ -256,14 +278,24 @@
         }
 
         async function fetchSpotData(lat, lng) {
-            document.getElementById('advice-box').innerHTML = "<div style='text-align:center; color: var(--text-muted); font-size: 13px;'>Calcolo condizioni e correnti in corso...</div>";
+            document.getElementById('advice-box').innerHTML = "<div style='text-align:center; color: var(--text-muted); font-size: 13px;'>Calcolo condizioni in corso...</div>";
             
             try {
                 let placeName = "Zona di mare";
+                let ampStatus = "✅ Pesca Consentita";
+                let isAmp = false;
+
                 try {
                     const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
                     const geoData = await geoRes.json();
                     placeName = geoData.name || geoData.address.village || geoData.address.town || geoData.address.city || "Zona Costiera";
+                    
+                    // Controllo rudimentale AMP basato sui dati OpenStreetMap
+                    let fullName = geoData.display_name ? geoData.display_name.toLowerCase() : "";
+                    if (fullName.includes("area marina protetta") || fullName.includes("riserva") || fullName.includes("parco nazionale")) {
+                        ampStatus = "❌ Divieto: Area Marina Protetta / Riserva";
+                        isAmp = true;
+                    }
                 } catch(e) {}
 
                 const sDate = dateInput.value;
@@ -278,11 +310,11 @@
                 if(wData.daily && wData.daily.sunset) ssTime = new Date(wData.daily.sunset[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
                 currentSpotData = {
-                    placeName: placeName, sunriseTime: srTime, sunsetTime: ssTime,
+                    placeName: placeName, ampStatus: ampStatus, isAmp: isAmp,
+                    sunriseTime: srTime, sunsetTime: ssTime,
                     winds: wData.hourly.wind_speed_10m, weather: wData.hourly.weather_code,
                     waves: mData.hourly.wave_height.map(w => w || 0),
-                    waveDir: mData.hourly.wave_direction,
-                    wavePeriod: mData.hourly.wave_period
+                    waveDir: mData.hourly.wave_direction, wavePeriod: mData.hourly.wave_period
                 };
 
                 buildTimeline(currentSpotData);
