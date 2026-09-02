@@ -143,7 +143,6 @@
         document.getElementById('depth-selector').addEventListener('change', updateAdvice);
         dateInput.addEventListener('change', () => { if (marker) fetchSpotData(marker.getLatLng().lat, marker.getLatLng().lng); });
 
-        // Converte i codici meteo WMO in icone o testo leggibile
         function parseWeather(code) {
             if(code <= 1) return "☀️";
             if(code <= 3) return "⛅";
@@ -161,7 +160,6 @@
 
         function calculateDynamicScore(startH, endH, depth, waves, winds) {
             let score = 50; 
-            // Calcolo medie sull'intervallo
             let avgWave = 0, avgWind = 0, count = 0;
             for(let i = startH; i < endH && i < 24; i++) { avgWave += waves[i]; avgWind += winds[i]; count++; }
             if(count > 0) { avgWave /= count; avgWind /= count; }
@@ -185,7 +183,7 @@
 
             const startH = parseInt(document.getElementById('time-start').value);
             let endH = parseInt(document.getElementById('time-end').value);
-            if (endH <= startH) endH = startH + 1; // Controllo validità orario
+            if (endH <= startH) endH = startH + 1; 
             const depth = document.getElementById('depth-selector').value;
             const month = new Date(dateInput.value).getMonth();
             
@@ -196,7 +194,6 @@
             const species = getTargetSpecies(depth, month);
             let scoreColor = score < 45 ? 'var(--bad)' : (score < 70 ? 'var(--mid)' : 'var(--good)');
 
-            // LOGICA MULTI-ARMA IN BASE ALLA FASCIA ORARIA
             let adviceText = "";
             let recommendedGun = "";
 
@@ -205,29 +202,25 @@
             const hasPred100 = availGuns.some(g => g.id === "pred100");
 
             if (startH <= 7 && endH >= 10) {
-                // Copre l'alba e la mattina inoltrata
-                adviceText = "Transizione luminosa. Inizia con agguato nel bassofondo alle prime luci, poi spostati su tane o pianori più profondi quando il sole alza la visibilità e fa intanare il pesce.";
-                if (hasAres && hasPred75) recommendedGun = "Doppia configurazione: Inizia con l'Ares 85 all'alba. Tieni il Predathor 75 sotto la boa per passare al razzolo/tana a metà mattinata.";
+                adviceText = "Transizione luminosa. Inizia con agguato nel bassofondo alle prime luci, poi spostati su tane o pianori più profondi quando il sole alza la visibilità.";
+                if (hasAres && hasPred75) recommendedGun = "Inizia con l'Ares 85 all'alba. Tieni il Predathor 75 sotto la boa per il razzolo/tana.";
                 else recommendedGun = availGuns.length > 0 ? availGuns[0].name : "Nessun fucile";
             } else if (startH <= 8) {
-                // Solo alba
                 adviceText = "Luce radente. Concentrati sull'aspetto e agguato contro sole.";
                 recommendedGun = hasAres ? "Ares 85 per massima versatilità" : (availGuns.length > 0 ? availGuns[0].name : "Nessuno");
             } else if (startH >= 10 && endH <= 16) {
-                // Ore centrali
-                adviceText = "Ore centrali. Pesce spesso apatico o intanato. Esplora le spacche o cerca tagli freddi profondi.";
+                adviceText = "Ore centrali. Pesce apatico o intanato. Esplora le spacche o cerca tagli freddi profondi.";
                 if (depth === "profondo" && hasPred100) recommendedGun = "Predathor 100 per caduta e aspetto profondo.";
                 else if (hasPred75) recommendedGun = "Predathor 75 (ideale per esplorare in tana).";
                 else recommendedGun = availGuns.length > 0 ? availGuns[0].name : "Nessuno";
             } else {
-                // Tramonto
-                adviceText = "Luce in calo. Aspetto in poca acqua per sfruttare l'ingresso dei predatori.";
+                adviceText = "Luce in calo. Aspetto in poca acqua per intercettare i predatori in entrata.";
                 recommendedGun = hasAres ? "Ares 85" : (availGuns.length > 0 ? availGuns[0].name : "Nessuno");
             }
 
             document.getElementById('advice-box').innerHTML = `
                 <div class="location-name">📍 ${currentSpotData.placeName}</div>
-                <div class="sun-time">🌅 Alba prevista per le ${currentSpotData.sunriseTime}</div>
+                <div class="sun-time">🌅 Alba: ${currentSpotData.sunriseTime} | 🌇 Tramonto: ${currentSpotData.sunsetTime}</div>
                 <div class="score-box" style="margin-top:10px;">
                     <div style="font-size:12px; text-transform:uppercase; color:#9ca3af;">Probabilità Statistica</div>
                     <div class="score-val" style="color:${scoreColor}">${score}%</div>
@@ -252,23 +245,30 @@
                 } catch(e) {}
 
                 const sDate = dateInput.value;
-                // Aggiunto weather_code, daily sunrise e timezone=auto
-                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,weather_code&daily=sunrise&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
+                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
                 const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height&start_date=${sDate}&end_date=${sDate}`);
                 const mData = await mRes.json();
 
-                // Estrazione alba formattata (HH:MM)
-                let srTime = "N/D";
-                if(wData.daily && wData.daily.sunrise) {
-                    const srDate = new Date(wData.daily.sunrise[0]);
-                    srTime = srDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                let srTime = "N/D", ssTime = "N/D";
+                if(wData.daily) {
+                    if(wData.daily.sunrise) {
+                        const srDate = new Date(wData.daily.sunrise[0]);
+                        srTime = srDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    }
+                    if(wData.daily.sunset) {
+                        const ssDate = new Date(wData.daily.sunset[0]);
+                        ssTime = ssDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    }
                 }
 
                 currentSpotData = {
-                    placeName: placeName, sunriseTime: srTime,
-                    winds: wData.hourly.wind_speed_10m, weather: wData.hourly.weather_code,
+                    placeName: placeName, 
+                    sunriseTime: srTime, 
+                    sunsetTime: ssTime,
+                    winds: wData.hourly.wind_speed_10m, 
+                    weather: wData.hourly.weather_code,
                     waves: mData.hourly.wave_height.map(w => w || 0)
                 };
 
