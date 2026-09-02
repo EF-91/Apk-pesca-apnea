@@ -113,7 +113,7 @@
         <div class="timeline-container" id="timeline"></div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></script>
     <script>
         const map = L.map('map').setView([42.0, 15.0], 9);
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(map);
@@ -181,18 +181,17 @@
             return "Calante 🌗 (Maree deboli)";
         }
 
-        // Elenco completo e illimitato delle prede per ogni quota e stagione
         function getTargetSpeciesArray(depth, month) {
             const isWarm = (month >= 5 && month <= 10);
             if (depth === "basso") {
-                return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Mormora", "Triglia", "Orata", "Muggine", "Seppia", "Lecia stella", "Occhiata", "Leccia"] 
-                              : ["Spigola", "Polpo", "Cefalo", "Seppia", "Sarago", "Mormora", "Rombo", "Triglia", "Grongo", "Salpa", "Calamaro"];
+                return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Mormora", "Triglia", "Orata", "Muggine", "Seppia", "Lecia stella", "Occhiata"] 
+                              : ["Spigola", "Polpo", "Cefalo", "Seppia", "Sarago", "Mormora", "Rombo", "Triglia", "Grongo", "Salpa"];
             } else if (depth === "medio") {
-                return isWarm ? ["Orata", "Sarago", "Corvina", "Serra", "Barracuda", "Dentice", "Palamita", "Cefalo", "Tanuta", "Cernia bruna", "Ricciola di passaggio", "Alici"] 
-                              : ["Sarago", "Tordo", "Corvina", "Polpo", "Grongo", "Murena", "Spigola", "Seppia", "Dentice", "Orata", "Calamaro profondo"];
+                return isWarm ? ["Orata", "Sarago", "Corvina", "Serra", "Barracuda", "Dentice", "Palamita", "Cefalo", "Tanuta", "Cernia bruna"] 
+                              : ["Sarago", "Tordo", "Corvina", "Polpo", "Grongo", "Murena", "Spigola", "Seppia", "Dentice", "Orata"];
             } else {
-                return isWarm ? ["Dentice", "Ricciola", "Cernia", "Dotto", "Palamita", "Tonno", "Barracuda", "Corvina", "Sarago", "Tanuta", "Pesce San Pietro", "Alalunga"] 
-                              : ["Cernia", "Ricciola", "Dentice", "Corvina", "Tordo", "Grongo", "Sarago", "Pagro", "Tanuta", "Dotto", "Nasello"];
+                return isWarm ? ["Dentice", "Ricciola", "Cernia", "Dotto", "Palamita", "Tonno", "Barracuda", "Corvina", "Sarago", "Tanuta"] 
+                              : ["Cernia", "Ricciola", "Dentice", "Corvina", "Tordo", "Grongo", "Sarago", "Pagro", "Tanuta", "Dotto"];
             }
         }
 
@@ -239,17 +238,17 @@
             } else if (availGuns.length === 0) {
                 gunAdvice = "Nessuna arma selezionata nell'inventario.";
             } else if (availGuns.length === 1) {
-                gunAdvice = `Usa il <b>${availGuns[0].name}</b> per tutta la sessione. Tattica: ${startH <= 8 ? 'sfrutta i tagli di luce' : 'ricerca attiva sul fondo'}.`;
+                gunAdvice = `Usa il <b>${availGuns[0].name}</b> (${availGuns[0].length}cm). Batimetrica operativa consigliata: ${depth === 'basso' ? '0-5m in risacca' : depth === 'medio' ? '6-12m su cigli e risalti' : '15-25m sul ciglio nel blu'}.`;
             } else {
                 let longGun = availGuns.reduce((prev, curr) => (prev.length > curr.length) ? prev : curr);
                 let shortGun = availGuns.find(g => g.id !== longGun.id) || availGuns[1];
 
                 if (startH <= 8 && endH > 10) {
-                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Impugna il <b>${longGun.name}</b>. Luce radente, perfetta per l'aspetto.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Passa al <b>${shortGun.name}</b>. Pesce intanato, ideale per il razzolo.`;
+                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Impugna il <b>${longGun.name} (${longGun.length}cm)</b>. Esegui <i>aspetto e agguato radente</i> nella fascia batimetrica <b>${depth === 'basso' ? '0-4m' : depth === 'medio' ? '5-10m' : '15-20m'}</b> sfruttando la scarsa luce.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Passa al <b>${shortGun.name} (${shortGun.length}cm)</b>. Spostati su <i>pesca in tana o razzolo sistematico</i> nella fascia <b>${depth === 'basso' ? '1-3m' : depth === 'medio' ? '8-14m' : '18-24m'}</b> per intercettare i pesci rientrati nei rifugi.`;
                 } else if (startH >= 10 && endH <= 16) {
-                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Esplora le prime spacche con il <b>${shortGun.name}</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Sui tagli freddi, usa il <b>${longGun.name}</b> per aspetti mirati.`;
+                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Usa il <b>${shortGun.name} (${shortGun.length}cm)</b> per <i>ispezione meticolosa di spacche e tana</i> tra i <b>${depth === 'basso' ? '2-5m' : depth === 'medio' ? '8-15m' : '20-30m'}</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Se la corrente apre un taglio freddo, passa al <b>${longGun.name} (${longGun.length}cm)</b> per <i>aspetto a quote operative</i> sui primi risalti batimetrici.`;
                 } else {
-                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Copri le medie batimetriche con il <b>${shortGun.name}</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Sfrutta il <b>${longGun.name}</b> per l'aspetto nel bassofondo al calare del sole.`;
+                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Lavora in <i>caduta e agguato dinamico</i> tra i <b>${depth === 'basso' ? '1-4m' : depth === 'medio' ? '6-12m' : '15-22m'}</b> con il <b>${shortGun.name} (${shortGun.length}cm)</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Al calare del sole, imbraccia il <b>${longGun.name} (${longGun.length}cm)</b> ed esegui <i>aspetto in poca acqua</i> (0-5m) per i predatori in caccia.`;
                 }
             }
 
@@ -281,7 +280,7 @@
                 </div>
 
                 <div class="detail-row">
-                    <span class="detail-label">Strategia e Armi Consigliate</span>
+                    <span class="detail-label">Strategia Tecnica e Batimetrica</span>
                     <span style="line-height: 1.5; margin-top: 5px;">${gunAdvice}</span>
                 </div>
             `;
