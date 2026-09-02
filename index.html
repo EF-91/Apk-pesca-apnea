@@ -7,38 +7,21 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --bg: #111827;
-            --surface: #1f2937;
-            --text: #f3f4f6;
-            --accent: #10b981;
-            --accent-hover: #059669;
-            --border: #374151;
-            --good: #34d399;
-            --mid: #fbbf24;
-            --bad: #f87171;
+            --bg: #111827; --surface: #1f2937; --text: #f3f4f6;
+            --accent: #10b981; --accent-hover: #059669; --border: #374151;
+            --good: #34d399; --mid: #fbbf24; --bad: #f87171;
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            background-color: var(--bg); color: var(--text);
+            margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center;
         }
 
         .container {
-            width: 100%;
-            max-width: 600px;
-            background-color: var(--surface);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-            box-sizing: border-box;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--border);
+            width: 100%; max-width: 600px; background-color: var(--surface);
+            border-radius: 10px; padding: 15px; margin-bottom: 15px;
+            box-sizing: border-box; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); border: 1px solid var(--border);
         }
 
         h3 { margin-top: 0; font-size: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; }
@@ -46,75 +29,34 @@
         .input-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
         
         select, input[type="date"] {
-            background-color: #374151;
-            color: var(--text);
-            border: 1px solid #4b5563;
-            padding: 10px;
-            border-radius: 6px;
-            flex: 1;
-            min-width: 130px;
-            font-size: 14px;
-            outline: none;
+            background-color: #374151; color: var(--text); border: 1px solid #4b5563;
+            padding: 10px; border-radius: 6px; flex: 1; min-width: 130px; font-size: 14px; outline: none;
         }
 
         button { 
-            background-color: var(--accent); 
-            color: #ffffff; 
-            font-weight: bold; 
-            cursor: pointer; 
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            text-transform: uppercase;
-            font-size: 13px;
-            letter-spacing: 0.5px;
+            background-color: var(--accent); color: #ffffff; font-weight: bold; cursor: pointer; border: none;
+            padding: 12px; border-radius: 6px; transition: all 0.2s ease; text-transform: uppercase; font-size: 13px;
         }
-
-        button:hover { background-color: var(--accent-hover); transform: translateY(-1px); }
-        button:active { transform: translateY(1px); }
+        button:hover { background-color: var(--accent-hover); }
 
         .gun-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; margin-bottom: 10px;}
         .gun-item { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #d1d5db; }
 
         #map { height: 250px; border-radius: 8px; margin-bottom: 15px; border: 2px solid var(--border); z-index: 1; }
 
-        .timeline-container {
-            overflow-x: auto;
-            background-color: #111827;
-            border-radius: 8px;
-            padding: 10px;
-            white-space: nowrap;
-            border: 1px solid var(--border);
-        }
-        
+        .timeline-container { overflow-x: auto; background-color: #111827; border-radius: 8px; padding: 10px; white-space: nowrap; border: 1px solid var(--border); }
         .timeline-row { display: flex; border-bottom: 1px solid var(--border); padding: 6px 0; align-items: center; }
         .timeline-row.no-border { border-bottom: none; }
         .row-label { width: 75px; flex-shrink: 0; font-size: 11px; font-weight: bold; color: #9ca3af; text-transform: uppercase; }
         .cell { width: 50px; flex-shrink: 0; text-align: center; font-size: 13px; }
 
-        .advice-panel { 
-            background-color: #065f46; 
-            padding: 15px; 
-            border-radius: 8px; 
-            font-size: 14px; 
-            line-height: 1.6;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            border: 1px solid #059669;
-        }
+        .advice-panel { background-color: #065f46; padding: 15px; border-radius: 8px; font-size: 14px; line-height: 1.6; display: flex; flex-direction: column; gap: 10px; border: 1px solid #059669; }
         .highlight { color: #6ee7b7; font-weight: bold; }
         
-        .score-box {
-            background-color: rgba(0,0,0,0.3);
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.05);
-        }
+        .score-box { background-color: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05); }
         .score-val { font-size: 36px; font-weight: bold; }
         .location-name { font-size: 16px; color: #fff; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; text-align: center; }
+        .sun-time { font-size: 13px; color: #fbbf24; text-align: center; font-weight: bold; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -125,19 +67,28 @@
     </div>
 
     <div class="container">
-        <h3>Pianificazione Uscita</h3>
-        
+        <h3>1. Data e Orario</h3>
         <div class="input-group">
             <input type="date" id="target-date">
         </div>
-
         <div class="input-group">
             <select id="time-start">
-                <option value="5">Inizio: 05:00 (Alba)</option>
-                <option value="8" selected>Inizio: 08:00 (Mattino)</option>
-                <option value="13">Inizio: 13:00 (Pomeriggio)</option>
-                <option value="17">Inizio: 17:00 (Tramonto)</option>
+                <option value="5">Dalle: 05:00</option>
+                <option value="6" selected>Dalle: 06:00</option>
+                <option value="9">Dalle: 09:00</option>
+                <option value="14">Dalle: 14:00</option>
+                <option value="17">Dalle: 17:00</option>
             </select>
+            <select id="time-end">
+                <option value="8">Alle: 08:00</option>
+                <option value="12" selected>Alle: 12:00</option>
+                <option value="16">Alle: 16:00</option>
+                <option value="20">Alle: 20:00</option>
+            </select>
+        </div>
+
+        <h3 style="margin-top:15px;">2. Operatività</h3>
+        <div class="input-group">
             <select id="depth-selector">
                 <option value="basso" selected>Quota: 0-5m (Schiuma)</option>
                 <option value="medio">Quota: 5-15m (Medio)</option>
@@ -145,47 +96,36 @@
             </select>
         </div>
 
-        <div style="font-size: 12px; margin-bottom: 8px; color: #9ca3af; text-transform: uppercase;">Arsenale:</div>
+        <div style="font-size: 12px; margin-bottom: 8px; color: #9ca3af; text-transform: uppercase;">Mio Arsenale:</div>
         <div class="gun-list" id="gun-inventory"></div>
     </div>
 
     <div class="container advice-panel" id="advice-box">
-        Seleziona un punto sulla mappa per elaborare le previsioni per la data indicata.
+        Seleziona un punto sulla mappa per elaborare il piano tattico.
     </div>
 
     <div class="container" id="forecast-container" style="display: none;">
-        <h3>Dettaglio Orario</h3>
+        <h3>Dettaglio Meteo/Mare</h3>
         <div class="timeline-container" id="timeline"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const map = L.map('map').setView([42.0, 15.0], 9);
-        
-        // Livello 1: Base Satellitare
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 18, attribution: 'Tiles &copy; Esri'
-        }).addTo(map);
-
-        // Livello 2: Etichette con nomi delle località e strade
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 18
-        }).addTo(map);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(map);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(map);
 
         let marker;
         const dateInput = document.getElementById('target-date');
         const today = new Date();
         dateInput.value = today.toISOString().split('T')[0];
         dateInput.min = dateInput.value;
-        
-        const maxDate = new Date();
-        maxDate.setDate(today.getDate() + 14);
-        dateInput.max = maxDate.toISOString().split('T')[0];
+        const maxDate = new Date(); maxDate.setDate(today.getDate() + 14); dateInput.max = maxDate.toISOString().split('T')[0];
 
         const myGuns = [
-            { id: "ares85", name: "Salvimar Ares 85", length: 85, types: ["agguato", "basso", "medio"], checked: true },
-            { id: "pred75", name: "Salvimar Predathor 75", length: 75, types: ["tana", "basso", "torbido"], checked: true },
-            { id: "pred100", name: "Salvimar Predathor 100", length: 100, types: ["aspetto", "caduta", "profondo", "medio"], checked: true }
+            { id: "ares85", name: "Ares 85", length: 85, types: ["agguato", "basso", "medio"], checked: true },
+            { id: "pred75", name: "Predathor 75", length: 75, types: ["tana", "basso", "torbido"], checked: true },
+            { id: "pred100", name: "Predathor 100", length: 100, types: ["aspetto", "caduta", "profondo"], checked: true }
         ];
 
         let currentSpotData = null; 
@@ -193,176 +133,182 @@
         function renderGuns() {
             const container = document.getElementById('gun-inventory');
             container.innerHTML = myGuns.map(gun => `
-                <label class="gun-item">
-                    <input type="checkbox" value="${gun.id}" class="gun-cb" ${gun.checked ? 'checked' : ''} onchange="updateAdvice()">
-                    ${gun.name}
-                </label>
+                <label class="gun-item"><input type="checkbox" value="${gun.id}" class="gun-cb" ${gun.checked ? 'checked' : ''} onchange="updateAdvice()">${gun.name}</label>
             `).join('');
         }
         renderGuns();
 
         document.getElementById('time-start').addEventListener('change', updateAdvice);
+        document.getElementById('time-end').addEventListener('change', updateAdvice);
         document.getElementById('depth-selector').addEventListener('change', updateAdvice);
-        
-        dateInput.addEventListener('change', () => {
-            if (marker) {
-                const pos = marker.getLatLng();
-                fetchSpotData(pos.lat, pos.lng);
-            }
-        });
+        dateInput.addEventListener('change', () => { if (marker) fetchSpotData(marker.getLatLng().lat, marker.getLatLng().lng); });
 
-        function getTargetSpecies(depth, month) {
-            const isWarmSeason = (month >= 5 && month <= 10);
-            if (depth === "basso") return isWarmSeason ? "Cefali, Saraghi, prime Spigole autunnali, Salpe" : "Spigole, Polpi, Cefali d'inverno";
-            if (depth === "medio") return isWarmSeason ? "Orate, Saraghi, Corvine, Serra" : "Saraghi, Tordi, Corvine";
-            return isWarmSeason ? "Dentici, Ricciole, Cernie" : "Cernie profonde, Ricciole";
+        // Converte i codici meteo WMO in icone o testo leggibile
+        function parseWeather(code) {
+            if(code <= 1) return "☀️";
+            if(code <= 3) return "⛅";
+            if(code <= 48) return "🌫️";
+            if(code <= 67) return "🌧️";
+            return "⛈️";
         }
 
-        function calculateDynamicScore(startHour, depth, avgWave, avgWind) {
+        function getTargetSpecies(depth, month) {
+            const isWarm = (month >= 5 && month <= 10);
+            if (depth === "basso") return isWarm ? "Cefali, Saraghi, prime Spigole, Salpe" : "Spigole, Polpi, Cefali";
+            if (depth === "medio") return isWarm ? "Orate, Saraghi, Corvine, Serra" : "Saraghi, Tordi, Corvine";
+            return isWarm ? "Dentici, Ricciole, Cernie" : "Cernie profonde, Ricciole";
+        }
+
+        function calculateDynamicScore(startH, endH, depth, waves, winds) {
             let score = 50; 
-            if (startHour <= 6 || startHour >= 17) score += 20; 
-            else if (startHour >= 10 && startHour <= 15) score -= 10; 
-            
+            // Calcolo medie sull'intervallo
+            let avgWave = 0, avgWind = 0, count = 0;
+            for(let i = startH; i < endH && i < 24; i++) { avgWave += waves[i]; avgWind += winds[i]; count++; }
+            if(count > 0) { avgWave /= count; avgWind /= count; }
+
+            if (startH <= 7 || endH >= 17) score += 20; 
             if (depth === "basso") {
                 if (avgWave >= 0.3 && avgWave <= 0.8) score += 25; 
                 else if (avgWave < 0.2) score -= 15; 
                 else if (avgWave > 1.2) score -= 20; 
             } else if (depth === "medio") {
-                if (avgWave <= 0.5) score += 10;
-                else if (avgWave > 1.0) score -= 15;
-            } else if (depth === "profondo") {
-                if (avgWave < 0.4) score += 15; 
-                else if (avgWave > 0.8) score -= 30; 
+                if (avgWave <= 0.5) score += 10; else if (avgWave > 1.0) score -= 15;
+            } else {
+                if (avgWave < 0.4) score += 15; else if (avgWave > 0.8) score -= 30; 
             }
-            if (avgWind > 15) score -= 15;
+            if (avgWind > 15) score -= 20;
             return Math.max(0, Math.min(100, Math.round(score)));
         }
 
         function updateAdvice() {
             if (!marker || !currentSpotData) return; 
 
-            const startHour = parseInt(document.getElementById('time-start').value);
+            const startH = parseInt(document.getElementById('time-start').value);
+            let endH = parseInt(document.getElementById('time-end').value);
+            if (endH <= startH) endH = startH + 1; // Controllo validità orario
             const depth = document.getElementById('depth-selector').value;
-            const targetMonth = new Date(dateInput.value).getMonth();
+            const month = new Date(dateInput.value).getMonth();
             
-            const checkboxes = document.querySelectorAll('.gun-cb:checked');
-            const selectedGunIds = Array.from(checkboxes).map(cb => cb.value);
-            const availableGuns = myGuns.filter(g => selectedGunIds.includes(g.id));
+            const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
+            const availGuns = myGuns.filter(g => selectedGunIds.includes(g.id));
 
-            let avgWave = 0, avgWind = 0, count = 0;
-            for(let i = startHour; i < startHour + 4 && i < 24; i++) {
-                avgWave += currentSpotData.waves[i] || 0;
-                avgWind += currentSpotData.winds[i] || 0;
-                count++;
+            const score = calculateDynamicScore(startH, endH, depth, currentSpotData.waves, currentSpotData.winds);
+            const species = getTargetSpecies(depth, month);
+            let scoreColor = score < 45 ? 'var(--bad)' : (score < 70 ? 'var(--mid)' : 'var(--good)');
+
+            // LOGICA MULTI-ARMA IN BASE ALLA FASCIA ORARIA
+            let adviceText = "";
+            let recommendedGun = "";
+
+            const hasAres = availGuns.some(g => g.id === "ares85");
+            const hasPred75 = availGuns.some(g => g.id === "pred75");
+            const hasPred100 = availGuns.some(g => g.id === "pred100");
+
+            if (startH <= 7 && endH >= 10) {
+                // Copre l'alba e la mattina inoltrata
+                adviceText = "Transizione luminosa. Inizia con agguato nel bassofondo alle prime luci, poi spostati su tane o pianori più profondi quando il sole alza la visibilità e fa intanare il pesce.";
+                if (hasAres && hasPred75) recommendedGun = "Doppia configurazione: Inizia con l'Ares 85 all'alba. Tieni il Predathor 75 sotto la boa per passare al razzolo/tana a metà mattinata.";
+                else recommendedGun = availGuns.length > 0 ? availGuns[0].name : "Nessun fucile";
+            } else if (startH <= 8) {
+                // Solo alba
+                adviceText = "Luce radente. Concentrati sull'aspetto e agguato contro sole.";
+                recommendedGun = hasAres ? "Ares 85 per massima versatilità" : (availGuns.length > 0 ? availGuns[0].name : "Nessuno");
+            } else if (startH >= 10 && endH <= 16) {
+                // Ore centrali
+                adviceText = "Ore centrali. Pesce spesso apatico o intanato. Esplora le spacche o cerca tagli freddi profondi.";
+                if (depth === "profondo" && hasPred100) recommendedGun = "Predathor 100 per caduta e aspetto profondo.";
+                else if (hasPred75) recommendedGun = "Predathor 75 (ideale per esplorare in tana).";
+                else recommendedGun = availGuns.length > 0 ? availGuns[0].name : "Nessuno";
+            } else {
+                // Tramonto
+                adviceText = "Luce in calo. Aspetto in poca acqua per sfruttare l'ingresso dei predatori.";
+                recommendedGun = hasAres ? "Ares 85" : (availGuns.length > 0 ? availGuns[0].name : "Nessuno");
             }
-            avgWave = count > 0 ? avgWave / count : 0;
-            avgWind = count > 0 ? avgWind / count : 0;
-
-            const score = calculateDynamicScore(startHour, depth, avgWave, avgWind);
-            const species = getTargetSpecies(depth, targetMonth);
-
-            let scoreColor = 'var(--good)';
-            if (score < 45) scoreColor = 'var(--bad)';
-            else if (score < 70) scoreColor = 'var(--mid)';
-
-            let recommendedGun = "Nessun fucile idoneo";
-            if (availableGuns.length > 0) {
-                const bestMatch = availableGuns.find(g => g.types.includes(depth));
-                recommendedGun = bestMatch ? bestMatch.name : availableGuns[0].name + " (Riadattato)";
-            }
-
-            let adviceText = depth === "basso" ? "Prediligi agguato e aspetto coperto. Usa molta zavorra." : 
-                             depth === "medio" ? "Alterna cadute a razzolo sui pianori." : 
-                             "Pesca impegnativa. Richiede compagno di sicurezza.";
 
             document.getElementById('advice-box').innerHTML = `
-                <div class="location-name">📍 Spot: ${currentSpotData.placeName}</div>
-                <div class="score-box">
-                    <div style="font-size:12px; text-transform:uppercase; color:#9ca3af;">Probabilità Incontro</div>
+                <div class="location-name">📍 ${currentSpotData.placeName}</div>
+                <div class="sun-time">🌅 Alba prevista per le ${currentSpotData.sunriseTime}</div>
+                <div class="score-box" style="margin-top:10px;">
+                    <div style="font-size:12px; text-transform:uppercase; color:#9ca3af;">Probabilità Statistica</div>
                     <div class="score-val" style="color:${scoreColor}">${score}%</div>
                 </div>
                 <div><span class="highlight">Target:</span> ${species}</div>
-                <div><span class="highlight">Fucile:</span> ${recommendedGun}</div>
+                <div><span class="highlight">Armi:</span> ${recommendedGun}</div>
                 <div style="margin-top:5px; border-top: 1px solid rgba(255,255,255,0.1); padding-top:8px;">
-                    <span class="highlight">Tattica:</span> ${adviceText}
+                    <span class="highlight">Tattica Fascia Oraria:</span> ${adviceText}
                 </div>
             `;
         }
 
         async function fetchSpotData(lat, lng) {
-            document.getElementById('advice-box').innerHTML = "<div style='text-align:center;'>Recupero dati e identificazione località...</div>";
+            document.getElementById('advice-box').innerHTML = "<div style='text-align:center;'>Analisi meteorologica e astronomica...</div>";
             
             try {
-                // Recupero nome località (Novità!)
-                let placeName = "Mare Aperto";
+                let placeName = "Zona di mare";
                 try {
                     const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
                     const geoData = await geoRes.json();
-                    placeName = geoData.name || geoData.address.village || geoData.address.town || geoData.address.city || geoData.address.county || "Zona di mare";
+                    placeName = geoData.name || geoData.address.village || geoData.address.town || geoData.address.city || "Zona di costa";
                 } catch(e) {}
 
-                const selectedDate = dateInput.value;
-                const dateQuery = `&start_date=${selectedDate}&end_date=${selectedDate}`;
-
-                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,surface_pressure,wind_speed_10m&wind_speed_unit=kn${dateQuery}`);
+                const sDate = dateInput.value;
+                // Aggiunto weather_code, daily sunrise e timezone=auto
+                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,weather_code&daily=sunrise&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
-                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height${dateQuery}`);
+                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height&start_date=${sDate}&end_date=${sDate}`);
                 const mData = await mRes.json();
 
+                // Estrazione alba formattata (HH:MM)
+                let srTime = "N/D";
+                if(wData.daily && wData.daily.sunrise) {
+                    const srDate = new Date(wData.daily.sunrise[0]);
+                    srTime = srDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                }
+
                 currentSpotData = {
-                    placeName: placeName,
-                    winds: wData.hourly.wind_speed_10m,
+                    placeName: placeName, sunriseTime: srTime,
+                    winds: wData.hourly.wind_speed_10m, weather: wData.hourly.weather_code,
                     waves: mData.hourly.wave_height.map(w => w || 0)
                 };
 
-                buildTimeline(wData.hourly, mData.hourly);
+                buildTimeline(currentSpotData, sDate);
                 document.getElementById('forecast-container').style.display = 'block';
                 updateAdvice(); 
 
             } catch (error) {
-                document.getElementById('advice-box').innerText = "Errore. Controlla la connessione o prova un altro punto.";
+                document.getElementById('advice-box').innerText = "Errore. Riprova selezionando un altro punto.";
             }
         }
 
-        function buildTimeline(weather, marine) {
+        function buildTimeline(data, targetDate) {
             const container = document.getElementById('timeline');
-            let html = '';
             let rowTime = '<div class="timeline-row"><div class="row-label">Ora</div>';
+            let rowMeteo = '<div class="timeline-row"><div class="row-label">Cielo</div>';
             let rowWind = '<div class="timeline-row"><div class="row-label">Vento(kn)</div>';
             let rowWave = '<div class="timeline-row"><div class="row-label">Onda(m)</div>';
 
             for (let i = 5; i <= 20; i++) {
                 let timeStr = i.toString().padStart(2, '0') + ':00';
-                let windSp = Math.round(weather.wind_speed_10m[i]);
-                let waveH = marine.wave_height[i] ? marine.wave_height[i].toFixed(1) : '-';
+                let icon = parseWeather(data.weather[i]);
+                let windSp = Math.round(data.winds[i]);
+                let waveH = data.waves[i] > 0 ? data.waves[i].toFixed(1) : '-';
 
                 rowTime += `<div class="cell" style="color:var(--accent); font-weight:bold;">${timeStr}</div>`;
+                rowMeteo += `<div class="cell">${icon}</div>`;
                 rowWind += `<div class="cell">${windSp}</div>`;
                 rowWave += `<div class="cell">${waveH}</div>`;
             }
-
-            container.innerHTML = rowTime + '</div>' + rowWind + '</div>' + rowWave + '</div>';
+            container.innerHTML = rowTime + '</div>' + rowMeteo + '</div>' + rowWind + '</div>' + rowWave + '</div>';
         }
 
-        map.on('click', function(e) {
-            const { lat, lng } = e.latlng;
-            if (marker) map.removeLayer(marker);
-            marker = L.marker([lat, lng]).addTo(map);
-            fetchSpotData(lat, lng);
-        });
-
+        map.on('click', e => { if (marker) map.removeLayer(marker); marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map); fetchSpotData(e.latlng.lat, e.latlng.lng); });
         document.getElementById('btn-gps').addEventListener('click', () => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(pos => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    map.setView([lat, lng], 13);
-                    if (marker) map.removeLayer(marker);
-                    marker = L.marker([lat, lng]).addTo(map);
-                    fetchSpotData(lat, lng);
-                });
-            }
+            if (navigator.geolocation) navigator.geolocation.getCurrentPosition(pos => {
+                map.setView([pos.coords.latitude, pos.coords.longitude], 13);
+                if (marker) map.removeLayer(marker); marker = L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map);
+                fetchSpotData(pos.coords.latitude, pos.coords.longitude);
+            });
         });
     </script>
 </body>
