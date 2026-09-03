@@ -1,5 +1,5 @@
 {
-  "name": "Spot Apnea Pro",
+  "name": "Pianificatore Pesca Apnea",
   "short_name": "SpotApnea",
   "start_url": "./index.html",
   "display": "standalone",
@@ -7,7 +7,7 @@
   "theme_color": "#0f1115",
   "icons": [
     {
-      "src": "icon.png",
+      "src": "icon.png?v=2",
       "sizes": "512x512",
       "type": "image/png"
     }
