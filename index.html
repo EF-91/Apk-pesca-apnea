@@ -153,7 +153,6 @@
         L.control.layers(baseMaps, overlayMaps, { position: 'topleft' }).addTo(map);
 
         let marker;
-        let tacticalMarkers = []; // Array per tracciare e cancellare i punti rossi
         let updateInterval; 
         const dateInput = document.getElementById('target-date');
         const today = new Date();
@@ -394,10 +393,8 @@
                     waveDir: mData.hourly.wave_direction, wavePeriod: mData.hourly.wave_period
                 };
 
-                // Pulisce i marker precedenti
+                // Pulisce solo il marker principale, gli hotspot sono stati rimossi.
                 if (marker) map.removeLayer(marker);
-                tacticalMarkers.forEach(m => map.removeLayer(m));
-                tacticalMarkers = [];
                 
                 const startH = parseInt(document.getElementById('time-start').value);
                 const windDirVal = wData.hourly.wind_direction_10m[startH] || 0;
@@ -407,29 +404,6 @@
                 let popupContent = `<div style="font-size:11px;"><b>${placeName}</b><br>Vento: ${windName}<br>Mare: ${currentArrow}</div>`;
                 marker = L.marker([lat, lng]).bindPopup(popupContent).addTo(map);
                 marker.openPopup();
-
-                // ALGORITMO HOTSPOT TATTICI (Raggio ~500m)
-                let wDir = mData.hourly.wave_direction[startH] || 0;
-                
-                // Punto 1 (Zona di Ridosso/Agguato a 350m - angolo onda + 90°)
-                let rad1 = (wDir + 90) * Math.PI / 180;
-                let lat1 = lat + (350 / 111000) * Math.cos(rad1);
-                let lng1 = lng + (350 / (111000 * Math.cos(lat * Math.PI / 180))) * Math.sin(rad1);
-                
-                let marker1 = L.circleMarker([lat1, lng1], { color: 'var(--windy-red)', radius: 6, weight: 2, fillOpacity: 0.8 })
-                               .bindPopup("<div style='font-size:11px;'><b>Hotspot A (350m)</b><br>Possibile ridosso dalla corrente principale.<br>Ideale per agguato sottocosta.</div>")
-                               .addTo(map);
-                tacticalMarkers.push(marker1);
-
-                // Punto 2 (Zona Esposta/Intercettazione a 480m - angolo onda - 45°)
-                let rad2 = (wDir - 45) * Math.PI / 180;
-                let lat2 = lat + (480 / 111000) * Math.cos(rad2);
-                let lng2 = lng + (480 / (111000 * Math.cos(lat * Math.PI / 180))) * Math.sin(rad2);
-
-                let marker2 = L.circleMarker([lat2, lng2], { color: 'var(--windy-red)', radius: 6, weight: 2, fillOpacity: 0.8 })
-                               .bindPopup("<div style='font-size:11px;'><b>Hotspot B (480m)</b><br>Esposizione potenziale al flusso.<br>Ottimo per aspetto ai predatori nel blu.</div>")
-                               .addTo(map);
-                tacticalMarkers.push(marker2);
 
                 buildTimeline(currentSpotData, moonData.age);
                 document.getElementById('forecast-container').style.display = 'block';
