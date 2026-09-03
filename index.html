@@ -73,6 +73,13 @@
 
         .leaflet-control-layers { background-color: var(--bg-panel) !important; color: var(--text-main) !important; border: 1px solid var(--border-line) !important; border-radius: 4px !important; }
         .leaflet-control-layers-list { font-size: 12px; }
+
+        /* Stili per il Tooltip Informativo */
+        .tooltip-container { position: relative; display: inline-block; cursor: pointer; margin-left: 6px; }
+        .info-icon { background: var(--windy-blue); color: white; border-radius: 50%; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
+        .tooltip-text { visibility: hidden; width: 220px; background-color: #1a1d24; color: var(--text-main); text-align: left; border: 1px solid var(--border-line); border-radius: 6px; padding: 10px; position: absolute; z-index: 1000; bottom: 130%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.3s; font-size: 11px; font-weight: normal; box-shadow: 0px 4px 6px rgba(0,0,0,0.5); }
+        .tooltip-container:hover .tooltip-text, .tooltip-container:active .tooltip-text { visibility: visible; opacity: 1; }
+        .tooltip-text::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: var(--border-line) transparent transparent transparent; }
     </style>
 </head>
 <body>
@@ -133,13 +140,16 @@
         const map = L.map('map', { zoomControl: false }).setView([39.81, 15.78], 14);
 
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 });
+        
+        // Aggiungiamo OpenSeaMap per le isobate dettagliate e mappe nautiche (mostra le batimetriche più chiare a passi fissi)
+        const openSeaMapLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 18 });
+        
         const bathymetryLayer = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', { layers: 'emodnet:mean_atlas_land', format: 'image/png', transparent: true, maxZoom: 18 });
-        const contoursLayer = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', { layers: 'emodnet:contours', format: 'image/png', transparent: true, maxZoom: 18 });
 
         satelliteLayer.addTo(map);
 
         const baseMaps = { "Satellitare": satelliteLayer, "Sfumature Profondità": bathymetryLayer };
-        const overlayMaps = { "Linee Isobate (Metri)": contoursLayer };
+        const overlayMaps = { "Isobate (Nautiche OpenSeaMap)": openSeaMapLayer };
 
         L.control.layers(baseMaps, overlayMaps, { position: 'topleft' }).addTo(map);
 
@@ -267,7 +277,6 @@
             let scoreColor = finalScore < 45 ? 'var(--windy-red)' : (finalScore <= 70 ? 'var(--mid)' : 'var(--windy-green)');
             if (currentSpotData.isAmp) scoreColor = 'var(--windy-red)';
 
-            // NUOVA LOGICA DINAMICA PER I FUCILI
             let gunAdvice = "";
             if (currentSpotData.isAmp) {
                 gunAdvice = "<span style='color:var(--windy-red); font-weight:bold;'>AREA MARINA PROTETTA. Divieto assoluto di pesca in apnea.</span>";
@@ -284,7 +293,6 @@
                 
                 let recommended = [];
                 
-                // Analisi situazionale
                 if (depth === 'basso' && sessionWave > 0.6) {
                     recommended.push(shortGuns.length > 0 ? shortGuns[0] : selectedGuns[0]);
                 } else if (duration <= 3) {
@@ -297,7 +305,7 @@
 
                 if (recommended.length === 1) {
                     let w = recommended[0];
-                    gunAdvice = `Setup ottimizzato (1 arma calcolata): <b>${w.name}</b>. Copertura tattica: ${depth === 'basso' ? '0-5m in agguato e schiuma' : depth === 'medio' ? '6-15m a scorrere sul ciglio' : '15m+ in caduta e aspetto profondo'}.`;
+                    gunAdvice = `Arma consigliata: <b>${w.name}</b>. Copertura tattica: ${depth === 'basso' ? '0-5m in agguato e schiuma' : depth === 'medio' ? '6-15m a scorrere sul ciglio' : '15m+ in caduta e aspetto profondo'}.`;
                 } else {
                     let midTime = Math.floor((startH + endH) / 2);
                     gunAdvice = `<b>${startH}:00 - ${midTime}:00</b>: Prima fase con <b>${recommended[0].name}</b>. Copertura ${depth === 'basso' ? '0-4m (aspetto radente)' : depth === 'medio' ? '5-10m (ciglio)' : '15-20m (caduta)'}.<br>
@@ -325,7 +333,22 @@
                             </div>
                         </div>
                     </div>
-                    <div class="tactic-box">${gunAdvice}</div>
+                    <div class="tactic-box">
+                        <div style="display:flex; align-items:center; margin-bottom: 6px;">
+                            <b style="color:var(--text-main);">Analisi Tattica</b>
+                            <div class="tooltip-container">
+                                <span class="info-icon">i</span>
+                                <div class="tooltip-text">
+                                    <b style="color:var(--windy-blue);">Glossario Tecniche:</b><br><br>
+                                    <b>Aspetto:</b> Appostamento immobile sul fondo sfruttando i ripari naturali per incuriosire il pesce.<br><br>
+                                    <b>Agguato:</b> Avvicinamento furtivo strisciando sul fondo, spesso con mare mosso.<br><br>
+                                    <b>Caduta:</b> Discesa verticale mirata direttamente sulla preda avvistata dalla superficie.<br><br>
+                                    <b>Razzolo:</b> Pesca di ricerca esplorando sistematicamente spacche e rocce.
+                                </div>
+                            </div>
+                        </div>
+                        ${gunAdvice}
+                    </div>
                 </div>
             `;
         }
