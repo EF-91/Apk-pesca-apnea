@@ -51,7 +51,7 @@
         .gun-list { display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 12px; max-height: 100px; overflow-y: auto; padding-right: 5px; }
         .gun-item { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1; }
         
-        #map { height: 220px; width: 100%; filter: contrast(1.2) saturate(1.2) brightness(0.9); }
+        #map { height: 260px; width: 100%; filter: contrast(1.1) saturate(1.1); }
 
         .data-grid { display: grid; grid-template-columns: auto 1fr; gap: 15px; align-items: stretch; }
         .score-box { text-align: center; padding: 15px; border-right: 1px solid var(--border-line); }
@@ -70,6 +70,10 @@
         
         .update-indicator { color: var(--windy-green); font-size: 9px; animation: blink 2s infinite; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        /* Correzione visiva per il menu dei livelli Leaflet sul tema scuro */
+        .leaflet-control-layers { background-color: var(--bg-panel) !important; color: var(--text-main) !important; border: 1px solid var(--border-line) !important; border-radius: 4px !important; }
+        .leaflet-control-layers-list { font-size: 12px; }
     </style>
 </head>
 <body>
@@ -127,11 +131,34 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('map', { zoomControl: false }).setView([42.0, 15.0], 6);
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(map);
+        // Inizializzazione mappa con coordinate vicine a Praia a Mare
+        const map = L.map('map', { zoomControl: false }).setView([39.9, 15.78], 11);
+
+        // Definizione dei Livelli (Satellitare e Batimetrica)
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { 
+            maxZoom: 18 
+        });
+
+        // WMS EMODnet per batimetria mediterranea dettagliata
+        const bathymetryLayer = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
+            layers: 'emodnet:mean_atlas_land',
+            format: 'image/png',
+            transparent: true,
+            maxZoom: 18
+        });
+
+        // Attiviamo il satellite di default
+        satelliteLayer.addTo(map);
+
+        // Creazione del selettore Livelli sulla mappa
+        const baseMaps = {
+            "Satellitare": satelliteLayer,
+            "Batimetrica": bathymetryLayer
+        };
+        L.control.layers(baseMaps, null, { position: 'topleft' }).addTo(map);
 
         let marker;
-        let updateInterval; // Variabile per il timer dei 10 minuti
+        let updateInterval; 
         const dateInput = document.getElementById('target-date');
         const today = new Date();
         dateInput.value = today.toISOString().split('T')[0];
@@ -191,7 +218,6 @@
             return sectors[Math.round(degrees / 45) % 8];
         }
 
-        // Calcolo fase lunare ed età per simulazione marea
         function getMoonData(date) {
             let year = date.getFullYear(), month = date.getMonth() + 1, day = date.getDate();
             if (month < 3) { year--; month += 12; }
@@ -200,7 +226,7 @@
             let age = ((jd - 2451549.5) / 29.53) % 1 * 29.53;
             
             let phase = "";
-            let coeff = 1.0; // coefficiente di marea
+            let coeff = 1.0; 
             if (age < 2 || age > 27) { phase = "Nuova 🌑"; coeff = 1.2; }
             else if (age < 13) { phase = "Crescente 🌓"; coeff = 0.8; }
             else if (age < 17) { phase = "Piena 🌕"; coeff = 1.2; }
@@ -209,9 +235,7 @@
             return { phase: phase, age: age, coeff: coeff };
         }
 
-        // Simula la direzione della marea in base all'ora lunare
         function getTideTrend(hour, moonAge) {
-            // Un ciclo di marea dura circa 12h 25m. Calcoliamo un offset basato sull'età della luna.
             let lunarOffset = (moonAge * 24 * 0.84) % 12; 
             let adjustedHour = (hour - lunarOffset + 24) % 12;
             if (adjustedHour < 6) return "🌊 Crescente (In)";
@@ -325,7 +349,6 @@
                 } catch(e) {}
 
                 const sDate = dateInput.value;
-                // Aggiunto wind_gusts_10m per le raffiche
                 const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
@@ -360,7 +383,6 @@
                 document.getElementById('forecast-container').style.display = 'block';
                 updateAdvice(); 
 
-                // Gestione Aggiornamento Automatico ogni 10 min
                 if(updateInterval) clearInterval(updateInterval);
                 updateInterval = setInterval(() => {
                     document.getElementById('update-timer').innerText = "Sincronizzazione...";
@@ -392,7 +414,6 @@
                 let waveH = data.waves[i] > 0 ? data.waves[i].toFixed(1) : '-';
                 let dirArrow = getDirectionArrow(data.waveDir[i]);
                 
-                // Marea calcolata matematicamente
                 let tideStr = getTideTrend(i, moonAge);
 
                 rowTime += `<div class="t-cell" style="color:var(--text-main); font-weight:600;">${timeStr}</div>`;
