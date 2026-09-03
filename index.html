@@ -36,7 +36,7 @@
 
         .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
         
-        select, input[type="date"], input[type="text"] {
+        select, input[type="date"] {
             background-color: var(--bg-base); color: var(--text-main); border: 1px solid var(--border-line);
             padding: 8px; font-size: 13px; outline: none; -webkit-appearance: none; width: 100%;
             box-sizing: border-box; border-radius: 4px;
@@ -52,7 +52,7 @@
         .gun-list { display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 12px; max-height: 100px; overflow-y: auto; padding-right: 5px; }
         .gun-item { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1; }
         
-        #map { height: 260px; width: 100%; filter: contrast(1.1) saturate(1.1); }
+        #map { height: 280px; width: 100%; filter: contrast(1.1) saturate(1.1); }
 
         .data-grid { display: grid; grid-template-columns: auto 1fr; gap: 15px; align-items: stretch; }
         .score-box { text-align: center; padding: 15px; border-right: 1px solid var(--border-line); }
@@ -97,7 +97,6 @@
         <div class="panel-content">
             <div class="input-grid">
                 <input type="date" id="target-date" style="grid-column: span 2;">
-                <!-- I menu a tendina orari verranno popolati da JavaScript -->
                 <select id="time-start"></select>
                 <select id="time-end"></select>
                 <select id="depth-selector" style="grid-column: span 2;">
@@ -108,18 +107,6 @@
             </div>
             <div style="font-size:10px; color:var(--windy-blue); margin-bottom:5px; text-transform:uppercase;">Arsenale (Max 3, sistema adattivo)</div>
             <div class="gun-list" id="gun-inventory"></div>
-        </div>
-    </div>
-
-    <!-- Modulo IA Aggiunto -->
-    <div class="panel">
-        <div class="panel-header">Assistente Tattico IA</div>
-        <div class="panel-content">
-            <div style="display: flex; gap: 8px;">
-                <input type="text" id="ai-query" placeholder="Fai una domanda su tattica o meteo...">
-                <button id="btn-ask-ai" style="width: auto; padding: 8px 15px;">Chiedi</button>
-            </div>
-            <div id="ai-response" style="margin-top: 12px; font-size: 12px; line-height: 1.4; color: var(--text-muted); display: none; padding: 10px; background-color: var(--bg-base); border: 1px solid var(--border-line); border-radius: 4px;"></div>
         </div>
     </div>
 
@@ -139,7 +126,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 1. GENERAZIONE DINAMICA DEGLI ORARI (Da 05:00 a 20:00)
         const startSelect = document.getElementById('time-start');
         const endSelect = document.getElementById('time-end');
         for(let i = 5; i <= 20; i++) {
@@ -147,19 +133,13 @@
             startSelect.innerHTML += `<option value="${i}">${hourStr} (Inizio)</option>`;
             endSelect.innerHTML += `<option value="${i}">${hourStr} (Fine)</option>`;
         }
-        // Impostiamo i valori di default
         startSelect.value = "6";
         endSelect.value = "12";
 
-        // 2. CONFIGURAZIONE MAPPA E ISOBATE
         const map = L.map('map', { zoomControl: false }).setView([39.81, 15.78], 14);
 
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 });
-        
-        // OpenSeaMap - Spesso più affidabile per le isobate fisse
         const openSeaMapLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 18 });
-        
-        // EMODnet - Fallback per batimetria densa
         const bathymetryLayer = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', { layers: 'emodnet:contours', format: 'image/png', transparent: true, maxZoom: 18 });
 
         satelliteLayer.addTo(map);
@@ -173,6 +153,7 @@
         L.control.layers(baseMaps, overlayMaps, { position: 'topleft' }).addTo(map);
 
         let marker;
+        let tacticalMarkers = []; // Array per tracciare e cancellare i punti rossi
         let updateInterval; 
         const dateInput = document.getElementById('target-date');
         const today = new Date();
@@ -206,24 +187,6 @@
             });
         }
         renderGuns();
-
-        // 3. LOGICA MODULO IA
-        document.getElementById('btn-ask-ai').addEventListener('click', () => {
-            const query = document.getElementById('ai-query').value.trim();
-            const responseBox = document.getElementById('ai-response');
-            if(query === "") return;
-            
-            responseBox.style.display = "block";
-            responseBox.innerHTML = "<i>Elaborazione richiesta in corso...</i>";
-            
-            // Simulazione ritardo di rete (1.5 secondi)
-            setTimeout(() => {
-                responseBox.innerHTML = `<span style="color:var(--windy-blue); font-weight:bold;">Analisi Tattica IA:</span><br><br>
-                La tua domanda: "<i>${query}</i>"<br><br>
-                <b>Attenzione Architettura:</b> L'interfaccia frontend è stata implementata con successo. Tuttavia, poiché il codice sorgente risiede nel browser (HTML/JS statico), non è possibile eseguire query complesse in locale o memorizzare un'API Key in chiaro senza comprometterne la sicurezza. <br><br>
-                <i>Prossimo step di programmazione:</i> Collegare questa casella a un server backend (Node.js o Python) configurato con le API di un LLM.`;
-            }, 1500);
-        });
 
         startSelect.addEventListener('change', updateAdvice);
         endSelect.addEventListener('change', updateAdvice);
@@ -431,7 +394,10 @@
                     waveDir: mData.hourly.wave_direction, wavePeriod: mData.hourly.wave_period
                 };
 
+                // Pulisce i marker precedenti
                 if (marker) map.removeLayer(marker);
+                tacticalMarkers.forEach(m => map.removeLayer(m));
+                tacticalMarkers = [];
                 
                 const startH = parseInt(document.getElementById('time-start').value);
                 const windDirVal = wData.hourly.wind_direction_10m[startH] || 0;
@@ -441,6 +407,29 @@
                 let popupContent = `<div style="font-size:11px;"><b>${placeName}</b><br>Vento: ${windName}<br>Mare: ${currentArrow}</div>`;
                 marker = L.marker([lat, lng]).bindPopup(popupContent).addTo(map);
                 marker.openPopup();
+
+                // ALGORITMO HOTSPOT TATTICI (Raggio ~500m)
+                let wDir = mData.hourly.wave_direction[startH] || 0;
+                
+                // Punto 1 (Zona di Ridosso/Agguato a 350m - angolo onda + 90°)
+                let rad1 = (wDir + 90) * Math.PI / 180;
+                let lat1 = lat + (350 / 111000) * Math.cos(rad1);
+                let lng1 = lng + (350 / (111000 * Math.cos(lat * Math.PI / 180))) * Math.sin(rad1);
+                
+                let marker1 = L.circleMarker([lat1, lng1], { color: 'var(--windy-red)', radius: 6, weight: 2, fillOpacity: 0.8 })
+                               .bindPopup("<div style='font-size:11px;'><b>Hotspot A (350m)</b><br>Possibile ridosso dalla corrente principale.<br>Ideale per agguato sottocosta.</div>")
+                               .addTo(map);
+                tacticalMarkers.push(marker1);
+
+                // Punto 2 (Zona Esposta/Intercettazione a 480m - angolo onda - 45°)
+                let rad2 = (wDir - 45) * Math.PI / 180;
+                let lat2 = lat + (480 / 111000) * Math.cos(rad2);
+                let lng2 = lng + (480 / (111000 * Math.cos(lat * Math.PI / 180))) * Math.sin(rad2);
+
+                let marker2 = L.circleMarker([lat2, lng2], { color: 'var(--windy-red)', radius: 6, weight: 2, fillOpacity: 0.8 })
+                               .bindPopup("<div style='font-size:11px;'><b>Hotspot B (480m)</b><br>Esposizione potenziale al flusso.<br>Ottimo per aspetto ai predatori nel blu.</div>")
+                               .addTo(map);
+                tacticalMarkers.push(marker2);
 
                 buildTimeline(currentSpotData, moonData.age);
                 document.getElementById('forecast-container').style.display = 'block';
@@ -494,7 +483,7 @@
         
         document.getElementById('btn-gps').addEventListener('click', () => {
             if (navigator.geolocation) navigator.geolocation.getCurrentPosition(pos => {
-                map.setView([pos.coords.latitude, pos.coords.longitude], 11);
+                map.setView([pos.coords.latitude, pos.coords.longitude], 13);
                 if (marker) map.removeLayer(marker); 
                 marker = L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map);
                 fetchSpotData(pos.coords.latitude, pos.coords.longitude);
