@@ -55,7 +55,7 @@
         
         #map { height: 280px; width: 100%; filter: contrast(1.1) saturate(1.1); }
 
-        .data-grid { display: grid; grid-template-columns: auto 1fr; gap: 15px; align-items: stretch; }
+        .data-grid { display: grid; grid-template-columns: auto 1fr; gap: 15px; align-items: stretch; margin-bottom: 15px; }
         .score-box { text-align: center; padding: 15px; border-right: 1px solid var(--border-line); }
         .score-val { font-size: 42px; font-weight: 700; line-height: 1; margin-bottom: 5px; }
         .score-lbl { font-size: 9px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; }
@@ -63,7 +63,7 @@
         .astro-box { font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; justify-content: center; }
         .astro-row { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border-line); padding-bottom: 4px; margin-bottom: 4px; }
 
-        .tactic-box { background-color: rgba(14, 165, 233, 0.05); padding: 10px; border-left: 2px solid var(--windy-blue); margin-top: 10px; font-size: 12px; }
+        .tactic-box { background-color: rgba(14, 165, 233, 0.05); padding: 10px; border-left: 2px solid var(--windy-blue); font-size: 12px; }
 
         .timeline-wrapper { overflow-x: auto; background-color: var(--bg-base); border-top: 1px solid var(--border-line); padding: 10px 0; }
         .t-row { display: flex; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
@@ -197,7 +197,12 @@
             let a = Math.floor(year / 100), b = Math.floor(a / 4), c = 2 - a + b;
             let jd = c + day + Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) - 1524.5;
             let age = ((jd - 2451549.5) / 29.53) % 1 * 29.53;
-            return { age: age };
+            let phase = "";
+            if (age < 2 || age > 27) phase = "Nuova 🌑";
+            else if (age < 13) phase = "Crescente 🌓";
+            else if (age < 17) phase = "Piena 🌕";
+            else phase = "Calante 🌗";
+            return { age: age, phase: phase };
         }
 
         function getTideTrend(hour, moonAge) {
@@ -207,6 +212,34 @@
             return "<span style='color:var(--windy-red);'>📉 OUT</span>";
         }
 
+        function getTargetSpeciesArray(depth, month) {
+            const isWarm = (month >= 5 && month <= 10);
+            if (depth === "basso") return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa"] : ["Spigola", "Polpo", "Cefalo"];
+            else if (depth === "medio") return isWarm ? ["Orata", "Corvina", "Serra", "Dentice"] : ["Sarago", "Tordo", "Corvina"];
+            return isWarm ? ["Dentice", "Ricciola", "Cernia", "Palamita"] : ["Cernia", "Ricciola", "Dentice"];
+        }
+
+        // Funzione per il calcolo della probabilità (0-100%)
+        function calculateRoundedScore(startH, endH, depth, waveAvg, windAvg) {
+            let score = 50; 
+            if (startH <= 7 || endH >= 18) score += 20; // Bonus alba/tramonto
+            
+            if (depth === "basso") {
+                if (waveAvg >= 0.3 && waveAvg <= 0.8) score += 25; 
+                else if (waveAvg < 0.2) score -= 15; 
+                else if (waveAvg > 1.2) score -= 30; 
+            } else if (depth === "medio") {
+                if (waveAvg <= 0.5) score += 15; 
+                else if (waveAvg > 1.0) score -= 25;
+            } else {
+                if (waveAvg < 0.4) score += 20; 
+                else if (waveAvg > 0.8) score -= 35; 
+            }
+            if (windAvg > 15) score -= 20;
+            
+            return Math.round(Math.max(0, Math.min(100, score)) / 5) * 5; 
+        }
+
         function updateAdvice() {
             if (!marker || !currentSpotData) return; 
             const startH = parseInt(document.getElementById('time-start').value);
@@ -214,54 +247,92 @@
             if (endH <= startH) endH = startH + 1; 
             const depth = document.getElementById('depth-selector').value;
             
+            const targetDateObj = new Date(dateInput.value);
+            const moonData = getMoonData(targetDateObj);
             const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
             const selectedGuns = allGuns.filter(g => selectedGunIds.includes(g.id));
 
-            let gunAdvice = "";
+            let htmlOutput = "";
             let warningBanner = "";
 
             if (currentSpotData.isFallback) {
                 warningBanner = `
                 <div style="background-color: rgba(234, 179, 8, 0.15); border: 1px solid var(--windy-warn); color: var(--windy-warn); padding: 8px; border-radius: 4px; font-size: 11px; margin-bottom: 10px; text-align: left;">
-                    ⚠️ Onde stimate in base al vento locale.
+                    ⚠️ Onde stimate in base al vento locale (punto mappa protetto).
                 </div>`;
             }
 
             if (currentSpotData.isAmp) {
-                gunAdvice = "<span style='color:var(--windy-red); font-weight:bold;'>AREA MARINA PROTETTA. Divieto assoluto di pesca in apnea.</span>";
+                htmlOutput = "<span style='color:var(--windy-red); font-weight:bold;'>AREA MARINA PROTETTA. Divieto assoluto di pesca in apnea.</span>";
             } else if (selectedGuns.length === 0) {
-                gunAdvice = "Nessuna arma selezionata nell'inventario.";
+                htmlOutput = "Nessuna arma selezionata nell'inventario.";
             } else {
                 let duration = endH - startH;
                 let midTime = Math.floor((startH + endH) / 2);
 
-                let waveSum1 = 0, count1 = 0;
-                let waveSum2 = 0, count2 = 0;
+                let waveSum1 = 0, windSum1 = 0, count1 = 0;
+                let waveSum2 = 0, windSum2 = 0, count2 = 0;
 
                 for(let i = startH; i < endH; i++) { 
                     let w = 0;
+                    let wind = currentSpotData.winds[i] || 0;
                     if (currentSpotData.isFallback) {
-                        let wind = currentSpotData.winds[i] || 0;
                         if (wind < 5) w = 0.1; else if (wind < 12) w = 0.4; else w = 1.0;
                     } else {
                         w = (currentSpotData.waves[i] !== undefined && currentSpotData.waves[i] !== null) ? currentSpotData.waves[i] : 0;
                     }
 
                     if (i < midTime || duration <= 3) {
-                        waveSum1 += w; count1++;
+                        waveSum1 += w; windSum1 += wind; count1++;
                     } else {
-                        waveSum2 += w; count2++;
+                        waveSum2 += w; windSum2 += wind; count2++;
                     }
                 }
                 
                 let wave1 = count1 > 0 ? waveSum1 / count1 : 0;
+                let wind1 = count1 > 0 ? windSum1 / count1 : 0;
                 let wave2 = count2 > 0 ? waveSum2 / count2 : 0;
+                let wind2 = count2 > 0 ? windSum2 / count2 : 0;
+
+                // Calcolo Punteggio Finale basato sulla media totale
+                let totalWaveAvg = (wave1 + wave2) / (count2 > 0 ? 2 : 1);
+                let totalWindAvg = (wind1 + wind2) / (count2 > 0 ? 2 : 1);
+                let finalScore = calculateRoundedScore(startH, endH, depth, totalWaveAvg, totalWindAvg);
+                let scoreColor = finalScore < 45 ? 'var(--windy-red)' : (finalScore <= 70 ? 'var(--windy-warn)' : 'var(--windy-green)');
+
+                // Dizionario Dettagliato delle Tecniche
+                const techDetails = {
+                    "agguato": "Avvicinati alla preda strisciando sul fondo o dietro i ripari naturali. Sfrutta il fondale per non farti vedere, ideale quando c'è poco moto ondoso.",
+                    "aspetto": "Immobilizzati sul fondo curando l'occultamento. Attendi che i predatori o i pesci di passaggio si avvicinino spinti dalla curiosità.",
+                    "schiuma": "Muoviti velocemente nel frangente e dove sbatte l'onda. L'acqua mossa e ossigenata copre i tuoi movimenti attirando i predatori a caccia.",
+                    "razzolo": "Ispeziona metodicamente il fondo alternando brevi aspetti a spostamenti dinamici tra le rocce e i cigli per scovare le prede.",
+                    "tana": "Pesca ravvicinata nelle spaccature della roccia. Usa la torcia per ispezionare anfratti bui dove il pesce si ripara dalla corrente."
+                };
 
                 function getTactics(waveAvg) {
-                    if (waveAvg <= 0.3) return depth === "basso" ? { tech: "agguato", desc: "Mare piatto. Agguato silenzioso." } : { tech: "aspetto", desc: "Calma piatta. Aspetto o caduta nel blu." };
-                    if (waveAvg <= 0.7) return depth === "basso" ? { tech: "schiuma", desc: "Risacca attiva. Pesca rapida in schiuma." } : { tech: "razzolo", desc: "Acqua mossa. Razzolo su cigli e spacche." };
-                    return { tech: "tana", desc: "Condizioni difficili. Pesca in tana pura." };
+                    if (waveAvg <= 0.3) return depth === "basso" ? { tech: "agguato", cond: "Mare piatto" } : { tech: "aspetto", cond: "Calma e acqua limpida" };
+                    if (waveAvg <= 0.7) return depth === "basso" ? { tech: "schiuma", cond: "Risacca attiva" } : { tech: "razzolo", cond: "Acqua mossa in superficie" };
+                    return { tech: "tana", cond: "Condizioni difficili o mare mosso" };
                 }
+
+                // Generazione Interfaccia Risultati
+                htmlOutput += `
+                    <div class="data-grid">
+                        <div class="score-box">
+                            <div class="score-val" style="color:${scoreColor}">${finalScore}%</div>
+                            <div class="score-lbl">Pescosità</div>
+                        </div>
+                        <div class="astro-box">
+                            <div class="astro-row"><span>🌅 Alba</span> <span>${currentSpotData.sunriseTime}</span></div>
+                            <div class="astro-row"><span>🌇 Tramonto</span> <span>${currentSpotData.sunsetTime}</span></div>
+                            <div class="astro-row"><span>🌙 Luna</span> <span>${moonData.phase}</span></div>
+                            <div class="astro-row" style="border:none; color:var(--windy-blue);">
+                                <span>🐟 Target</span> <span style="text-align:right;">${getTargetSpeciesArray(depth, targetDateObj.getMonth()).join(", ")}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ${warningBanner}
+                `;
 
                 if (duration <= 3) {
                     let t = getTactics((wave1 + wave2) / 2);
@@ -270,12 +341,14 @@
                     let borderCol = isFallbackGun ? "var(--windy-red)" : "var(--windy-green)";
                     let bgCol = isFallbackGun ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)";
 
-                    gunAdvice = `
-                        ${warningBanner}
-                        <div style="margin-bottom:8px;">${t.desc}</div>
-                        <div style="padding: 8px; border: 1px ${isFallbackGun ? 'dashed' : 'solid'} ${borderCol}; border-radius: 4px; background: ${bgCol};">
-                            <b>${isFallbackGun ? 'Arma di Ripiego' : 'Arma Perfetta'}: ${gun.name}</b><br>
-                            <span style="font-size: 10px; color: ${borderCol};">${isFallbackGun ? 'Adattamento necessario' : 'Ottimizzata per: ' + t.tech.toUpperCase()}</span>
+                    htmlOutput += `
+                        <div class="tactic-box">
+                            <div style="margin-bottom:8px;"><b>Condizioni:</b> ${t.cond}.</div>
+                            <div style="margin-bottom:12px; font-size:11px; color:var(--text-muted);"><b>Come agire:</b> ${techDetails[t.tech]}</div>
+                            <div style="padding: 8px; border: 1px ${isFallbackGun ? 'dashed' : 'solid'} ${borderCol}; border-radius: 4px; background: ${bgCol};">
+                                <b>${isFallbackGun ? 'Arma di Ripiego' : 'Arma Perfetta'}: ${gun.name}</b><br>
+                                <span style="font-size: 10px; color: ${borderCol};">${isFallbackGun ? 'Adattamento necessario' : 'Ottimizzata per: ' + t.tech.toUpperCase()}</span>
+                            </div>
                         </div>
                     `;
                 } else {
@@ -288,20 +361,23 @@
                     let isFb1 = !gun1.techniques.includes(t1.tech);
                     let isFb2 = !gun2.techniques.includes(t2.tech);
 
-                    gunAdvice = `
-                        ${warningBanner}
-                        <div style="margin-bottom:10px; font-weight:600; color:var(--windy-blue);">Sessione lunga (${duration} ore). Setup diviso in fasi:</div>
-                        
-                        <div style="margin-bottom:8px; padding: 8px; border-left: 3px solid var(--windy-blue); background: rgba(14, 165, 233, 0.05);">
-                            <b style="color:var(--text-main);">Fase 1 (${startH}:00 - ${midTime}:00)</b><br>
-                            <span style="font-size:11px;">${t1.desc}</span><br>
-                            <span style="color:${isFb1 ? 'var(--windy-red)' : 'var(--windy-green)'}; font-weight:bold;">↳ ${gun1.name}</span> <span style="font-size:9px;">(${t1.tech.toUpperCase()})</span>
-                        </div>
+                    htmlOutput += `
+                        <div class="tactic-box" style="text-align:left;">
+                            <div style="margin-bottom:10px; font-weight:600; color:var(--windy-blue);">Sessione lunga (${duration} ore). Pianificazione tattica:</div>
+                            
+                            <div style="margin-bottom:12px; padding: 10px; border-left: 3px solid var(--windy-blue); background: rgba(14, 165, 233, 0.05);">
+                                <b style="color:var(--text-main); font-size:13px;">Fase 1 (${startH}:00 - ${midTime}:00)</b><br>
+                                <span style="color:var(--windy-blue); font-weight:bold; font-size:11px;">Tecnica: ${t1.tech.toUpperCase()}</span><br>
+                                <span style="font-size:11px; display:block; margin:4px 0;">${techDetails[t1.tech]}</span>
+                                <span style="color:${isFb1 ? 'var(--windy-red)' : 'var(--windy-green)'}; font-weight:bold;">🎯 Arma: ${gun1.name}</span>
+                            </div>
 
-                        <div style="padding: 8px; border-left: 3px solid var(--windy-blue); background: rgba(14, 165, 233, 0.05);">
-                            <b style="color:var(--text-main);">Fase 2 (${midTime}:00 - ${endH}:00)</b><br>
-                            <span style="font-size:11px;">${t2.desc}</span><br>
-                            <span style="color:${isFb2 ? 'var(--windy-red)' : 'var(--windy-green)'}; font-weight:bold;">↳ ${gun2.name}</span> <span style="font-size:9px;">(${t2.tech.toUpperCase()})</span>
+                            <div style="padding: 10px; border-left: 3px solid var(--windy-blue); background: rgba(14, 165, 233, 0.05);">
+                                <b style="color:var(--text-main); font-size:13px;">Fase 2 (${midTime}:00 - ${endH}:00)</b><br>
+                                <span style="color:var(--windy-blue); font-weight:bold; font-size:11px;">Tecnica: ${t2.tech.toUpperCase()}</span><br>
+                                <span style="font-size:11px; display:block; margin:4px 0;">${techDetails[t2.tech]}</span>
+                                <span style="color:${isFb2 ? 'var(--windy-red)' : 'var(--windy-green)'}; font-weight:bold;">🎯 Arma: ${gun2.name}</span>
+                            </div>
                         </div>
                     `;
                 }
@@ -312,9 +388,7 @@
                     <span style="color:var(--windy-blue);">${currentSpotData.placeName}</span>
                 </div>
                 <div class="panel-content" style="padding-top:0;">
-                    <div class="tactic-box" style="text-align: left;">
-                        ${gunAdvice}
-                    </div>
+                    ${htmlOutput}
                 </div>
             `;
         }
@@ -355,7 +429,7 @@
                 } catch(e) {}
 
                 const sDate = dateInput.value;
-                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
+                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
                 let mData = await getValidMarineData(lat, lng, sDate);
@@ -372,10 +446,15 @@
                     };
                 }
 
+                let srTime = "-", ssTime = "-";
+                if(wData.daily && wData.daily.sunrise) srTime = new Date(wData.daily.sunrise[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                if(wData.daily && wData.daily.sunset) ssTime = new Date(wData.daily.sunset[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
                 currentSpotData = {
                     placeName: placeName, isFallback: isFallback,
                     winds: wData.hourly.wind_speed_10m, 
                     weather: wData.hourly.weather_code,
+                    sunriseTime: srTime, sunsetTime: ssTime,
                     waves: mData.hourly.wave_height,
                     waveDir: mData.hourly.wave_direction, 
                     wavePeriod: mData.hourly.wave_period,
