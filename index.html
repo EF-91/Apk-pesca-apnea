@@ -36,15 +36,16 @@
 
         .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
         
-        select, input[type="date"] {
+        select, input[type="date"], input[type="text"] {
             background-color: var(--bg-base); color: var(--text-main); border: 1px solid var(--border-line);
             padding: 8px; font-size: 13px; outline: none; -webkit-appearance: none; width: 100%;
-            box-sizing: border-box;
+            box-sizing: border-box; border-radius: 4px;
         }
 
         button { 
             background-color: #2563eb; color: #fff; font-weight: 600; cursor: pointer; border: none;
             padding: 10px; width: 100%; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;
+            border-radius: 4px;
         }
         button:active { background-color: #1d4ed8; }
 
@@ -74,7 +75,6 @@
         .leaflet-control-layers { background-color: var(--bg-panel) !important; color: var(--text-main) !important; border: 1px solid var(--border-line) !important; border-radius: 4px !important; }
         .leaflet-control-layers-list { font-size: 12px; }
 
-        /* Stili per il Tooltip Informativo */
         .tooltip-container { position: relative; display: inline-block; cursor: pointer; margin-left: 6px; }
         .info-icon { background: var(--windy-blue); color: white; border-radius: 50%; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
         .tooltip-text { visibility: hidden; width: 220px; background-color: #1a1d24; color: var(--text-main); text-align: left; border: 1px solid var(--border-line); border-radius: 6px; padding: 10px; position: absolute; z-index: 1000; bottom: 130%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.3s; font-size: 11px; font-weight: normal; box-shadow: 0px 4px 6px rgba(0,0,0,0.5); }
@@ -97,19 +97,9 @@
         <div class="panel-content">
             <div class="input-grid">
                 <input type="date" id="target-date" style="grid-column: span 2;">
-                <select id="time-start">
-                    <option value="5">05:00 (Inizio)</option>
-                    <option value="6" selected>06:00 (Inizio)</option>
-                    <option value="9">09:00 (Inizio)</option>
-                    <option value="14">14:00 (Inizio)</option>
-                    <option value="17">17:00 (Inizio)</option>
-                </select>
-                <select id="time-end">
-                    <option value="8">08:00 (Fine)</option>
-                    <option value="12" selected>12:00 (Fine)</option>
-                    <option value="16">16:00 (Fine)</option>
-                    <option value="20">20:00 (Fine)</option>
-                </select>
+                <!-- I menu a tendina orari verranno popolati da JavaScript -->
+                <select id="time-start"></select>
+                <select id="time-end"></select>
                 <select id="depth-selector" style="grid-column: span 2;">
                     <option value="basso" selected>Quota: 0-5m (Risacca/Schiuma)</option>
                     <option value="medio">Quota: 5-15m (Razzolo/Ciglio)</option>
@@ -118,6 +108,18 @@
             </div>
             <div style="font-size:10px; color:var(--windy-blue); margin-bottom:5px; text-transform:uppercase;">Arsenale (Max 3, sistema adattivo)</div>
             <div class="gun-list" id="gun-inventory"></div>
+        </div>
+    </div>
+
+    <!-- Modulo IA Aggiunto -->
+    <div class="panel">
+        <div class="panel-header">Assistente Tattico IA</div>
+        <div class="panel-content">
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="ai-query" placeholder="Fai una domanda su tattica o meteo...">
+                <button id="btn-ask-ai" style="width: auto; padding: 8px 15px;">Chiedi</button>
+            </div>
+            <div id="ai-response" style="margin-top: 12px; font-size: 12px; line-height: 1.4; color: var(--text-muted); display: none; padding: 10px; background-color: var(--bg-base); border: 1px solid var(--border-line); border-radius: 4px;"></div>
         </div>
     </div>
 
@@ -137,19 +139,36 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // 1. GENERAZIONE DINAMICA DEGLI ORARI (Da 05:00 a 20:00)
+        const startSelect = document.getElementById('time-start');
+        const endSelect = document.getElementById('time-end');
+        for(let i = 5; i <= 20; i++) {
+            let hourStr = i.toString().padStart(2, '0') + ":00";
+            startSelect.innerHTML += `<option value="${i}">${hourStr} (Inizio)</option>`;
+            endSelect.innerHTML += `<option value="${i}">${hourStr} (Fine)</option>`;
+        }
+        // Impostiamo i valori di default
+        startSelect.value = "6";
+        endSelect.value = "12";
+
+        // 2. CONFIGURAZIONE MAPPA E ISOBATE
         const map = L.map('map', { zoomControl: false }).setView([39.81, 15.78], 14);
 
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 });
         
-        // Aggiungiamo OpenSeaMap per le isobate dettagliate e mappe nautiche (mostra le batimetriche più chiare a passi fissi)
+        // OpenSeaMap - Spesso più affidabile per le isobate fisse
         const openSeaMapLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 18 });
         
-        const bathymetryLayer = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', { layers: 'emodnet:mean_atlas_land', format: 'image/png', transparent: true, maxZoom: 18 });
+        // EMODnet - Fallback per batimetria densa
+        const bathymetryLayer = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', { layers: 'emodnet:contours', format: 'image/png', transparent: true, maxZoom: 18 });
 
         satelliteLayer.addTo(map);
 
-        const baseMaps = { "Satellitare": satelliteLayer, "Sfumature Profondità": bathymetryLayer };
-        const overlayMaps = { "Isobate (Nautiche OpenSeaMap)": openSeaMapLayer };
+        const baseMaps = { "Satellitare": satelliteLayer };
+        const overlayMaps = { 
+            "Isobate (OpenSeaMap)": openSeaMapLayer,
+            "Contorni EMODnet": bathymetryLayer 
+        };
 
         L.control.layers(baseMaps, overlayMaps, { position: 'topleft' }).addTo(map);
 
@@ -188,8 +207,26 @@
         }
         renderGuns();
 
-        document.getElementById('time-start').addEventListener('change', updateAdvice);
-        document.getElementById('time-end').addEventListener('change', updateAdvice);
+        // 3. LOGICA MODULO IA
+        document.getElementById('btn-ask-ai').addEventListener('click', () => {
+            const query = document.getElementById('ai-query').value.trim();
+            const responseBox = document.getElementById('ai-response');
+            if(query === "") return;
+            
+            responseBox.style.display = "block";
+            responseBox.innerHTML = "<i>Elaborazione richiesta in corso...</i>";
+            
+            // Simulazione ritardo di rete (1.5 secondi)
+            setTimeout(() => {
+                responseBox.innerHTML = `<span style="color:var(--windy-blue); font-weight:bold;">Analisi Tattica IA:</span><br><br>
+                La tua domanda: "<i>${query}</i>"<br><br>
+                <b>Attenzione Architettura:</b> L'interfaccia frontend è stata implementata con successo. Tuttavia, poiché il codice sorgente risiede nel browser (HTML/JS statico), non è possibile eseguire query complesse in locale o memorizzare un'API Key in chiaro senza comprometterne la sicurezza. <br><br>
+                <i>Prossimo step di programmazione:</i> Collegare questa casella a un server backend (Node.js o Python) configurato con le API di un LLM.`;
+            }, 1500);
+        });
+
+        startSelect.addEventListener('change', updateAdvice);
+        endSelect.addEventListener('change', updateAdvice);
         document.getElementById('depth-selector').addEventListener('change', updateAdvice);
         dateInput.addEventListener('change', triggerFetch);
 
