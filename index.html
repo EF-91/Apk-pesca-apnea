@@ -310,13 +310,19 @@
                 const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height,wave_direction,wave_period,ocean_tide&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
                 const mData = await mRes.json();
 
-                // CONTROLLO DI SICUREZZA PER TERRAFERMA
-                if (mData.error || !mData.hourly || !mData.hourly.wave_height) {
+                // 1. Verifichiamo se l'array delle onde esiste ed è formato solo da valori null (vuoti)
+                let isAllNull = true;
+                if (mData.hourly && mData.hourly.wave_height) {
+                    isAllNull = mData.hourly.wave_height.every(val => val === null);
+                }
+
+                // 2. Controllo di sicurezza potenziato
+                if (mData.error || !mData.hourly || isAllNull) {
                     document.getElementById('advice-box').innerHTML = `
-                        <div class="panel-content" style="text-align:center; color: var(--windy-red); font-size: 12px; padding: 20px;">
-                            <b style="font-size: 14px;">Rilevata Terraferma</b><br><br>
-                            I server oceanografici non hanno dati per questa coordinata esatta.<br>
-                            Per favore, tocca un punto leggermente più al largo sull'acqua azzurra.
+                        <div class="panel-content" style="text-align:center; color: var(--windy-red); font-size: 12px; padding: 15px;">
+                            <b style="font-size: 14px;">Limite Griglia Oceanografica</b><br><br>
+                            Il server meteo divide il mondo in quadrati di circa 5 km. Anche se hai cliccato sull'acqua, il sistema considera questa coordinata ancora parte della costa.<br><br>
+                            💡 <b>Soluzione:</b> Clicca a circa <b>2-3 km più a largo</b> per permettere al server di leggere le onde in mare aperto.
                         </div>`;
                     if (marker) map.removeLayer(marker);
                     return; 
