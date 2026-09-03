@@ -191,6 +191,23 @@
             return sectors[Math.round(degrees / 45) % 8];
         }
 
+        // Calcolo Matematico Marea
+        function getMoonData(date) {
+            let year = date.getFullYear(), month = date.getMonth() + 1, day = date.getDate();
+            if (month < 3) { year--; month += 12; }
+            let a = Math.floor(year / 100), b = Math.floor(a / 4), c = 2 - a + b;
+            let jd = c + day + Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) - 1524.5;
+            let age = ((jd - 2451549.5) / 29.53) % 1 * 29.53;
+            return { age: age };
+        }
+
+        function getTideTrend(hour, moonAge) {
+            let lunarOffset = (moonAge * 24 * 0.84) % 12; 
+            let adjustedHour = (hour - lunarOffset + 24) % 12;
+            if (adjustedHour < 6) return "<span style='color:var(--windy-blue);'>🌊 IN</span>";
+            return "<span style='color:var(--windy-red);'>📉 OUT</span>";
+        }
+
         function updateAdvice() {
             if (!marker || !currentSpotData) return; 
             const startH = parseInt(document.getElementById('time-start').value);
@@ -201,68 +218,49 @@
             const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
             const selectedGuns = allGuns.filter(g => selectedGunIds.includes(g.id));
 
-            let finalScore = 60; 
-            let scoreColor = 'var(--mid)';
             let gunAdvice = "";
             let warningBanner = "";
 
-            // Se i dati marini sono finti (fallback) mostriamo un avviso giallo
             if (currentSpotData.isFallback) {
                 warningBanner = `
                 <div style="background-color: rgba(234, 179, 8, 0.15); border: 1px solid var(--windy-warn); color: var(--windy-warn); padding: 8px; border-radius: 4px; font-size: 11px; margin-bottom: 10px; text-align: left;">
-                    ⚠️ <b>Onde non calcolabili in questa cala.</b> L'algoritmo utilizzerà la forza del vento per valutare l'approccio tattico.
+                    ⚠️ Onde calcolate in base al vento. Nessun punto marittimo valido trovato.
                 </div>`;
             }
 
-            if (currentSpotData.isAmp) {
-                gunAdvice = "<span style='color:var(--windy-red); font-weight:bold;'>AREA MARINA PROTETTA. Divieto assoluto di pesca in apnea.</span>";
-                finalScore = 0;
-            } else if (selectedGuns.length === 0) {
+            if (selectedGuns.length === 0) {
                 gunAdvice = "Nessuna arma selezionata nell'inventario.";
             } else {
-                let waveSum = 0, windSum = 0, count = 0;
+                let waveSum = 0, count = 0;
                 for(let i = startH; i < endH; i++) { 
                     if(currentSpotData.waves[i] !== undefined && currentSpotData.waves[i] !== null) { 
-                        waveSum += currentSpotData.waves[i]; 
-                    }
-                    if(currentSpotData.winds[i] !== undefined) {
-                        windSum += currentSpotData.winds[i];
-                    }
-                    count++; 
+                        waveSum += currentSpotData.waves[i]; count++; 
+                    } 
                 }
                 
                 let sessionWave = count > 0 ? waveSum / count : 0;
-                let sessionWind = count > 0 ? windSum / count : 0;
-                
-                // Se siamo in Fallback, convertiamo approssimativamente il vento in onda per l'algoritmo
-                if (currentSpotData.isFallback) {
-                    if (sessionWind < 5) sessionWave = 0.1;
-                    else if (sessionWind < 12) sessionWave = 0.4;
-                    else sessionWave = 1.0;
-                }
-                
                 let idealTechnique = "";
                 let tacticDescription = "";
 
                 if (sessionWave <= 0.3) {
                     if (depth === "basso") {
                         idealTechnique = "agguato";
-                        tacticDescription = "Condizioni stabili in poca acqua. Usa l'<b>agguato silenzioso</b> sfruttando ogni minimo riparo.";
+                        tacticDescription = "Mare piatto in poca acqua. Usa l'<b>agguato silenzioso</b> sfruttando ogni minimo riparo.";
                     } else {
                         idealTechnique = "aspetto";
-                        tacticDescription = "Condizioni ideali. Fai <b>aspetto o caduta</b> per incuriosire il pesce nel blu.";
+                        tacticDescription = "Condizioni di calma piatta e visibilità ottima. Fai <b>aspetto o caduta</b> per incuriosire il pesce.";
                     }
                 } else if (sessionWave > 0.3 && sessionWave <= 0.7) {
                     if (depth === "basso") {
                         idealTechnique = "schiuma";
-                        tacticDescription = "Moto ondoso / Vento moderato. La tecnica ideale è la <b>pesca in schiuma</b> con arma dal brandeggio rapido.";
+                        tacticDescription = "Moto ondoso in aumento (Risacca). La tecnica ideale è la <b>pesca in schiuma</b> con un'arma dal brandeggio rapido.";
                     } else {
                         idealTechnique = "razzolo";
-                        tacticDescription = "Acqua mossa in superficie. Scorri il fondale con il <b>razzolo</b> esplorando cigli e spacche.";
+                        tacticDescription = "Onda formata in superficie. Scorri il fondale con il <b>razzolo</b> esplorando cigli e spacche.";
                     }
                 } else {
                      idealTechnique = "tana";
-                     tacticDescription = "Condizioni difficili, corrente o vento forte. Visibilità ridotta. Dedicati alla <b>pesca in tana</b> pura.";
+                     tacticDescription = "Mare agitato o forte risacca. Visibilità ridotta. Dedicati alla <b>pesca in tana</b> pura.";
                 }
 
                 let recommendedGun = selectedGuns.find(gun => gun.techniques.includes(idealTechnique));
@@ -283,7 +281,7 @@
                         <div style="margin-bottom:8px;">${tacticDescription}</div>
                         <div style="padding: 8px; border: 1px dashed var(--windy-red); border-radius: 4px; background: rgba(239, 68, 68, 0.1);">
                             <b>Arma di Ripiego: ${fallbackGun.name}</b><br>
-                            <span style="font-size: 10px; color: var(--windy-red);">Attenzione: non hai armi per il tipo di pesca richiesto (${idealTechnique}). Dovrai adattarti.</span>
+                            <span style="font-size: 10px; color: var(--windy-red);">Attenzione: non hai armi per la tecnica richiesta (${idealTechnique}). Dovrai adattarti.</span>
                         </div>
                     `;
                 }
@@ -304,17 +302,37 @@
             `;
         }
 
+        // SONAR ESTREMO: Cerca le ONDE (senza chiedere la marea al server per evitare il blocco del Mediterraneo)
         async function getValidMarineData(baseLat, baseLng, sDate) {
-            const offsets = [[0, 0], [0, -0.05], [-0.05, 0]];
+            const offsets = [
+                [0, 0],             // Punto esatto
+                [0, -0.05],         // Ovest (5km) - Tirreno
+                [0, 0.05],          // Est (5km) - Adriatico
+                [-0.05, 0],         // Sud (5km)
+                [0.05, 0],          // Nord
+                [-0.05, -0.05],     // Sud-Ovest
+                [0.05, -0.05],      // Nord-Ovest
+                [0, -0.1],          // Ovest Profondo (11km)
+                [0, 0.1],           // Est Profondo
+                [-0.1, -0.1]        // Sud-Ovest Profondo
+            ];
+
             for (let off of offsets) {
                 let testLat = baseLat + off[0];
                 let testLng = baseLng + off[1];
                 try {
-                    let res = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${testLat}&longitude=${testLng}&hourly=wave_height,wave_direction,wave_period,ocean_tide&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
+                    // RIMOSSO ocean_tide: Questo impedisce al server Open-Meteo di rifiutare la richiesta nel Mediterraneo!
+                    let res = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${testLat}&longitude=${testLng}&hourly=wave_height,wave_direction,wave_period&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
+                    
                     if (!res.ok) continue; 
+                    
                     let data = await res.json();
+                    
                     if (data.hourly && data.hourly.wave_height) {
-                        if (data.hourly.wave_height.some(val => val !== null)) return data; 
+                        let hasWaterData = data.hourly.wave_height.some(val => val !== null);
+                        if (hasWaterData) {
+                            return data; 
+                        }
                     }
                 } catch(e) {}
             }
@@ -323,13 +341,13 @@
 
         async function fetchSpotData(lat, lng) {
             const dateObj = new Date(dateInput.value);
+            const moonData = getMoonData(dateObj); // Usiamo la luna per la marea
+
             document.getElementById('forecast-container').style.display = 'none';
-            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-blue); font-size: 11px;'>📡 Scansione dati meteo in corso...</div>";
+            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-blue); font-size: 11px;'>📡 Scansione dati marini in corso...</div>";
             
             try {
                 let placeName = "Coordinate Radar";
-                let isAmp = false;
-
                 try {
                     const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
                     const geoData = await geoRes.json();
@@ -337,34 +355,34 @@
                 } catch(e) {}
 
                 const sDate = dateInput.value;
-                // 1. Chiamata Meteo (Funziona SEMPRE, sia su terra che mare)
+                // Previsioni Vento/Cielo
                 const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
-                // 2. Chiamata Marine (Può fallire se troppo a ridosso)
+                // Previsioni Onde (Solo Onde)
                 let mData = await getValidMarineData(lat, lng, sDate);
                 let isFallback = false;
 
-                // 3. DEGRADAZIONE GRAZIOSA: Se mData fallisce, creiamo noi un oggetto finto per non bloccare l'app
+                // Piano di emergenza: se tocchi in montagna
                 if (!mData) {
                     isFallback = true;
                     mData = {
                         hourly: {
                             wave_height: new Array(24).fill(null),
                             wave_direction: new Array(24).fill(null),
-                            wave_period: new Array(24).fill(null),
-                            ocean_tide: new Array(24).fill(null)
+                            wave_period: new Array(24).fill(null)
                         }
                     };
                 }
 
                 currentSpotData = {
-                    placeName: placeName, isAmp: isAmp, isFallback: isFallback,
-                    winds: wData.hourly.wind_speed_10m, gusts: wData.hourly.wind_gusts_10m,
+                    placeName: placeName, isFallback: isFallback,
+                    winds: wData.hourly.wind_speed_10m, 
                     weather: wData.hourly.weather_code,
                     waves: mData.hourly.wave_height,
-                    waveDir: mData.hourly.wave_direction, wavePeriod: mData.hourly.wave_period,
-                    tides: mData.hourly.ocean_tide 
+                    waveDir: mData.hourly.wave_direction, 
+                    wavePeriod: mData.hourly.wave_period,
+                    moonAge: moonData.age // Salviamo l'età lunare per la tabella
                 };
 
                 if (marker) map.removeLayer(marker);
@@ -372,7 +390,7 @@
                 const startH = parseInt(document.getElementById('time-start').value);
                 const windDirVal = wData.hourly.wind_direction_10m[startH] || 0;
                 let windName = getWindDirectionName(windDirVal);
-                let currentArrow = isFallback ? "-" : getDirectionArrow(mData.hourly.wave_direction[startH] || 0);
+                let currentArrow = isFallback || mData.hourly.wave_direction[startH] === null ? "-" : getDirectionArrow(mData.hourly.wave_direction[startH]);
 
                 let popupContent = `<div style="font-size:11px;"><b>${placeName}</b><br>Vento: ${windName}<br>Mare: ${currentArrow}</div>`;
                 marker = L.marker([lat, lng]).bindPopup(popupContent).addTo(map);
@@ -383,7 +401,7 @@
                 updateAdvice(); 
 
             } catch (error) {
-                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore critico di rete. Ricarica la pagina.</div>";
+                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore di rete. Assicurati di essere connesso a Internet.</div>";
             }
         }
 
@@ -394,7 +412,7 @@
             let rowWind = '<div class="t-row"><div class="t-label">Vento (kn)</div>';
             let rowWave = '<div class="t-row"><div class="t-label">Onda (m)</div>';
             let rowPeriod = '<div class="t-row"><div class="t-label">Period (s)</div>';
-            let rowTide = '<div class="t-row" style="border:none;"><div class="t-label">Marea (m)</div>';
+            let rowTide = '<div class="t-row" style="border:none;"><div class="t-label">Stima Marea</div>';
 
             for (let i = 5; i <= 20; i++) {
                 let timeStr = i.toString().padStart(2, '0') + ':00';
@@ -405,17 +423,8 @@
                 let dirArrow = getDirectionArrow(data.waveDir[i]);
                 let period = (data.wavePeriod[i] !== null && data.wavePeriod[i] !== undefined) ? Math.round(data.wavePeriod[i]) + 's' : '-';
                 
-                let currentTide = data.tides && data.tides[i] !== null ? data.tides[i] : undefined;
-                let prevTide = i > 0 && data.tides && data.tides[i-1] !== null ? data.tides[i-1] : currentTide;
-                let tideIcon = "";
-                let tideColor = "var(--text-muted)";
-                
-                if (currentTide !== undefined) {
-                    if (currentTide > prevTide + 0.02) { tideIcon = "🌊"; tideColor = "var(--windy-blue)"; } 
-                    else if (currentTide < prevTide - 0.02) { tideIcon = "📉"; } 
-                    else { tideIcon = "〰️"; } 
-                }
-                let tideStr = currentTide !== undefined ? `<span style="color:${tideColor}">${currentTide.toFixed(2)} ${tideIcon}</span>` : "-";
+                // Marea calcolata matematicamente (nessun blocco server!)
+                let tideStr = getTideTrend(i, data.moonAge);
 
                 rowTime += `<div class="t-cell" style="color:var(--text-main); font-weight:600;">${timeStr}</div>`;
                 rowMeteo += `<div class="t-cell">${icon}</div>`;
