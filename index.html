@@ -288,10 +288,49 @@
             `;
         }
 
+        // --- NUOVO ALGORITMO DI RICERCA OFFSHORE AUTOMATICA ---
+        // Questa funzione interroga il server con uno spostamento (offset) matematico.
+        // Se non trova le onde al punto 0 (la costa), allarga il cerchio fino a trovare acqua profonda.
+        async function getValidMarineData(baseLat, baseLng, sDate) {
+            // [latitudine, longitudine] - 0.04 gradi equivalgono a circa 4-5 chilometri.
+            const offsets = [
+                [0, 0],             // 1. Tenta il punto esatto
+                [0, -0.04],         // 2. Tenta verso Ovest (mare aperto per il Tirreno)
+                [0, 0.04],          // 3. Tenta verso Est (mare aperto per l'Adriatico)
+                [-0.04, 0],         // 4. Tenta verso Sud
+                [0.04, 0],          // 5. Tenta verso Nord
+                [0, -0.08],         // 6. Espansione a ~8-10 km a Ovest
+                [0, 0.08]           // 7. Espansione a ~8-10 km a Est
+            ];
+
+            for (let off of offsets) {
+                let testLat = baseLat + off[0];
+                let testLng = baseLng + off[1];
+                try {
+                    let res = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${testLat}&longitude=${testLng}&hourly=wave_height,wave_direction,wave_period,ocean_tide&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
+                    let data = await res.json();
+                    
+                    let isAllNull = true;
+                    if (data.hourly && data.hourly.wave_height) {
+                        isAllNull = data.hourly.wave_height.every(val => val === null);
+                    }
+                    
+                    // Se non ci sono errori e le onde non sono tutte "vuote", abbiamo trovato il mare!
+                    if (!data.error && data.hourly && !isAllNull) {
+                        return data; 
+                    }
+                } catch(e) {
+                    console.log("Errore al tentativo offset", off);
+                }
+            }
+            return null; // Ritorna null solo se dopo 7 tentativi non trova acqua.
+        }
+
         async function fetchSpotData(lat, lng) {
             const dateObj = new Date(dateInput.value);
             document.getElementById('forecast-container').style.display = 'none';
-            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--text-muted); font-size: 11px;'>Connessione server meteo-marini in corso...</div>";
+            // Aggiorniamo il testo per informarti che il radar sta scandagliando l'area.
+            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--text-muted); font-size: 11px;'>Scansione radar in corso. Ricerca dati offshore...</div>";
             
             try {
                 let placeName = "Coordinate Radar";
@@ -307,22 +346,14 @@
                 const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
-                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height,wave_direction,wave_period,ocean_tide&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
-                const mData = await mRes.json();
+                // Usiamo la nostra nuova funzione intelligente che non si ferma alla costa
+                const mData = await getValidMarineData(lat, lng, sDate);
 
-                // 1. Verifichiamo se l'array delle onde esiste ed è formato solo da valori null (vuoti)
-                let isAllNull = true;
-                if (mData.hourly && mData.hourly.wave_height) {
-                    isAllNull = mData.hourly.wave_height.every(val => val === null);
-                }
-
-                // 2. Controllo di sicurezza potenziato
-                if (mData.error || !mData.hourly || isAllNull) {
+                if (!mData) {
                     document.getElementById('advice-box').innerHTML = `
                         <div class="panel-content" style="text-align:center; color: var(--windy-red); font-size: 12px; padding: 15px;">
-                            <b style="font-size: 14px;">Limite Griglia Oceanografica</b><br><br>
-                            Il server meteo divide il mondo in quadrati di circa 5 km. Anche se hai cliccato sull'acqua, il sistema considera questa coordinata ancora parte della costa.<br><br>
-                            💡 <b>Soluzione:</b> Clicca a circa <b>2-3 km più a largo</b> per permettere al server di leggere le onde in mare aperto.
+                            <b style="font-size: 14px;">Limite Mappa Superato</b><br><br>
+                            Il radar si è esteso fino a 10km ma non ha rilevato mare aperto. Assicurati di non aver cliccato troppo nell'entroterra.
                         </div>`;
                     if (marker) map.removeLayer(marker);
                     return; 
@@ -353,7 +384,7 @@
                 updateAdvice(); 
 
             } catch (error) {
-                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore: Impossibile scaricare i dati marini. Verifica la connessione.</div>";
+                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore generale: Verifica la tua connessione a Internet.</div>";
             }
         }
 
