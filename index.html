@@ -219,10 +219,9 @@
             return isWarm ? ["Dentice", "Ricciola", "Cernia", "Palamita"] : ["Cernia", "Ricciola", "Dentice"];
         }
 
-        // Funzione per il calcolo della probabilità (0-100%)
         function calculateRoundedScore(startH, endH, depth, waveAvg, windAvg) {
             let score = 50; 
-            if (startH <= 7 || endH >= 18) score += 20; // Bonus alba/tramonto
+            if (startH <= 7 || endH >= 18) score += 20; 
             
             if (depth === "basso") {
                 if (waveAvg >= 0.3 && waveAvg <= 0.8) score += 25; 
@@ -294,13 +293,11 @@
                 let wave2 = count2 > 0 ? waveSum2 / count2 : 0;
                 let wind2 = count2 > 0 ? windSum2 / count2 : 0;
 
-                // Calcolo Punteggio Finale basato sulla media totale
                 let totalWaveAvg = (wave1 + wave2) / (count2 > 0 ? 2 : 1);
                 let totalWindAvg = (wind1 + wind2) / (count2 > 0 ? 2 : 1);
                 let finalScore = calculateRoundedScore(startH, endH, depth, totalWaveAvg, totalWindAvg);
                 let scoreColor = finalScore < 45 ? 'var(--windy-red)' : (finalScore <= 70 ? 'var(--windy-warn)' : 'var(--windy-green)');
 
-                // Dizionario Dettagliato delle Tecniche
                 const techDetails = {
                     "agguato": "Avvicinati alla preda strisciando sul fondo o dietro i ripari naturali. Sfrutta il fondale per non farti vedere, ideale quando c'è poco moto ondoso.",
                     "aspetto": "Immobilizzati sul fondo curando l'occultamento. Attendi che i predatori o i pesci di passaggio si avvicinino spinti dalla curiosità.",
@@ -315,7 +312,6 @@
                     return { tech: "tana", cond: "Condizioni difficili o mare mosso" };
                 }
 
-                // Generazione Interfaccia Risultati
                 htmlOutput += `
                     <div class="data-grid">
                         <div class="score-box">
