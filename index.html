@@ -49,7 +49,7 @@
         }
         button:active { background-color: #1d4ed8; }
 
-        .gun-list { display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 12px; max-height: 100px; overflow-y: auto; padding-right: 5px; }
+        .gun-list { display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 12px; max-height: 120px; overflow-y: auto; padding-right: 5px; }
         .gun-item { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1; }
         
         #map { height: 280px; width: 100%; filter: contrast(1.1) saturate(1.1); }
@@ -67,19 +67,13 @@
         .timeline-wrapper { overflow-x: auto; background-color: var(--bg-base); border-top: 1px solid var(--border-line); padding: 10px 0; }
         .t-row { display: flex; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
         .t-label { width: 75px; flex-shrink: 0; font-size: 10px; color: var(--text-muted); padding-left: 10px; text-transform: uppercase; }
-        .t-cell { width: 45px; flex-shrink: 0; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
+        .t-cell { width: 50px; flex-shrink: 0; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
         
         .update-indicator { color: var(--windy-green); font-size: 9px; animation: blink 2s infinite; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
 
         .leaflet-control-layers { background-color: var(--bg-panel) !important; color: var(--text-main) !important; border: 1px solid var(--border-line) !important; border-radius: 4px !important; }
         .leaflet-control-layers-list { font-size: 12px; }
-
-        .tooltip-container { position: relative; display: inline-block; cursor: pointer; margin-left: 6px; }
-        .info-icon { background: var(--windy-blue); color: white; border-radius: 50%; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
-        .tooltip-text { visibility: hidden; width: 220px; background-color: #1a1d24; color: var(--text-main); text-align: left; border: 1px solid var(--border-line); border-radius: 6px; padding: 10px; position: absolute; z-index: 1000; bottom: 130%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.3s; font-size: 11px; font-weight: normal; box-shadow: 0px 4px 6px rgba(0,0,0,0.5); }
-        .tooltip-container:hover .tooltip-text, .tooltip-container:active .tooltip-text { visibility: visible; opacity: 1; }
-        .tooltip-text::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: var(--border-line) transparent transparent transparent; }
     </style>
 </head>
 <body>
@@ -105,7 +99,7 @@
                     <option value="profondo">Quota: 15m+ (Profondo/Blu)</option>
                 </select>
             </div>
-            <div style="font-size:10px; color:var(--windy-blue); margin-bottom:5px; text-transform:uppercase;">Arsenale (Max 3, sistema adattivo)</div>
+            <div style="font-size:10px; color:var(--windy-blue); margin-bottom:5px; text-transform:uppercase;">Arsenale (Associazione Arma/Tecnica)</div>
             <div class="gun-list" id="gun-inventory"></div>
         </div>
     </div>
@@ -137,20 +131,11 @@
         endSelect.value = "12";
 
         const map = L.map('map', { zoomControl: false }).setView([39.81, 15.78], 14);
-
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 });
         const openSeaMapLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { maxZoom: 18 });
-        const bathymetryLayer = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', { layers: 'emodnet:contours', format: 'image/png', transparent: true, maxZoom: 18 });
-
+        
         satelliteLayer.addTo(map);
-
-        const baseMaps = { "Satellitare": satelliteLayer };
-        const overlayMaps = { 
-            "Isobate (OpenSeaMap)": openSeaMapLayer,
-            "Contorni EMODnet": bathymetryLayer 
-        };
-
-        L.control.layers(baseMaps, overlayMaps, { position: 'topleft' }).addTo(map);
+        L.control.layers({ "Satellitare": satelliteLayer }, { "Isobate (Nautiche)": openSeaMapLayer }, { position: 'topleft' }).addTo(map);
 
         let marker;
         let updateInterval; 
@@ -158,16 +143,16 @@
         const today = new Date();
         dateInput.value = today.toISOString().split('T')[0];
         dateInput.min = dateInput.value;
-        const maxDate = new Date(); maxDate.setDate(today.getDate() + 14); dateInput.max = maxDate.toISOString().split('T')[0];
 
+        // INVENTARIO AGGIORNATO: Ogni fucile ha un array di tecniche ("techniques") associate in base a lunghezza e allestimento.
         const allGuns = [
-            { id: "ares85", name: "Salvimar Ares 85", length: 85, checked: true },
-            { id: "pred75", name: "Salvimar Predathor 75", length: 75, checked: true },
-            { id: "pred100", name: "Salvimar Predathor 100", length: 100, checked: false },
-            { id: "cher90", name: "Cressi Cherokee 90", length: 90, checked: false },
-            { id: "snip95", name: "Pathos Sniper 95", length: 95, checked: false },
-            { id: "cay75", name: "Omer Cayman 75", length: 75, checked: false },
-            { id: "carb115", name: "C4 Mr. Carbon 115", length: 115, checked: false }
+            { id: "ares85", name: "Salvimar Ares 85", techniques: ["agguato", "razzolo"], checked: true },
+            { id: "pred75", name: "Salvimar Predathor 75", techniques: ["tana", "schiuma"], checked: true },
+            { id: "pred100", name: "Salvimar Predathor 100", techniques: ["aspetto", "caduta"], checked: false },
+            { id: "cher90", name: "Cressi Cherokee 90", techniques: ["agguato", "aspetto"], checked: false },
+            { id: "snip95", name: "Pathos Sniper 95", techniques: ["aspetto", "caduta"], checked: false },
+            { id: "cay75", name: "Omer Cayman 75", techniques: ["tana", "schiuma"], checked: false },
+            { id: "carb115", name: "C4 Mr. Carbon 115", techniques: ["aspetto", "blu"], checked: true }
         ];
 
         let currentSpotData = null; 
@@ -175,13 +160,12 @@
         function renderGuns() {
             const container = document.getElementById('gun-inventory');
             container.innerHTML = allGuns.map(gun => `
-                <label class="gun-item"><input type="checkbox" value="${gun.id}" class="gun-cb" ${gun.checked ? 'checked' : ''}>${gun.name}</label>
+                <label class="gun-item"><input type="checkbox" value="${gun.id}" class="gun-cb" ${gun.checked ? 'checked' : ''}>${gun.name} <span style="font-size:9px; color:var(--text-muted);">(${gun.techniques.join(', ')})</span></label>
             `).join('');
 
             document.querySelectorAll('.gun-cb').forEach(cb => {
                 cb.addEventListener('change', function() {
-                    if (document.querySelectorAll('.gun-cb:checked').length > 3) this.checked = false;
-                    else updateAdvice();
+                    updateAdvice();
                 });
             });
         }
@@ -192,9 +176,7 @@
         document.getElementById('depth-selector').addEventListener('change', updateAdvice);
         dateInput.addEventListener('change', triggerFetch);
 
-        function triggerFetch() {
-            if (marker) fetchSpotData(marker.getLatLng().lat, marker.getLatLng().lng);
-        }
+        function triggerFetch() { if (marker) fetchSpotData(marker.getLatLng().lat, marker.getLatLng().lng); }
 
         function parseWeather(code) {
             if(code <= 1) return "☀️"; if(code <= 3) return "⛅";
@@ -207,58 +189,6 @@
             return arrows[Math.round(degrees / 45) % 8];
         }
 
-        function getWindDirectionName(degrees) {
-            if (degrees === null || degrees === undefined) return "";
-            const sectors = ["N (Tramontana)", "NE (Grecale)", "E (Levante)", "SE (Scirocco)", "S (Ostro)", "SO (Libeccio)", "O (Ponente)", "NO (Maestrale)"];
-            return sectors[Math.round(degrees / 45) % 8];
-        }
-
-        function getMoonData(date) {
-            let year = date.getFullYear(), month = date.getMonth() + 1, day = date.getDate();
-            if (month < 3) { year--; month += 12; }
-            let a = Math.floor(year / 100), b = Math.floor(a / 4), c = 2 - a + b;
-            let jd = c + day + Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) - 1524.5;
-            let age = ((jd - 2451549.5) / 29.53) % 1 * 29.53;
-            let phase = "";
-            if (age < 2 || age > 27) phase = "Nuova 🌑";
-            else if (age < 13) phase = "Crescente 🌓";
-            else if (age < 17) phase = "Piena 🌕";
-            else phase = "Calante 🌗";
-            return { phase: phase, age: age };
-        }
-
-        function getTideTrend(hour, moonAge) {
-            let lunarOffset = (moonAge * 24 * 0.84) % 12; 
-            let adjustedHour = (hour - lunarOffset + 24) % 12;
-            if (adjustedHour < 6) return "🌊 Crescente (In)";
-            return "📉 Calante (Out)";
-        }
-
-        function getTargetSpeciesArray(depth, month) {
-            const isWarm = (month >= 5 && month <= 10);
-            if (depth === "basso") return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Lecia"] : ["Spigola", "Polpo", "Cefalo", "Seppia"];
-            else if (depth === "medio") return isWarm ? ["Orata", "Corvina", "Serra", "Barracuda", "Dentice"] : ["Sarago", "Tordo", "Corvina", "Grongo"];
-            return isWarm ? ["Dentice", "Ricciola", "Cernia", "Palamita", "Tonno"] : ["Cernia", "Ricciola", "Dentice", "Tordo"];
-        }
-
-        function calculateRoundedScore(startH, endH, depth, waves, winds) {
-            let score = 50; 
-            let avgWave = 0, avgWind = 0, count = 0;
-            for(let i = startH; i < endH && i < 24; i++) { avgWave += waves[i]; avgWind += winds[i]; count++; }
-            if(count > 0) { avgWave /= count; avgWind /= count; }
-            if (startH <= 7 || endH >= 17) score += 20; 
-            if (depth === "basso") {
-                if (avgWave >= 0.3 && avgWave <= 0.8) score += 25; 
-                else if (avgWave < 0.2) score -= 15; else if (avgWave > 1.2) score -= 20; 
-            } else if (depth === "medio") {
-                if (avgWave <= 0.5) score += 10; else if (avgWave > 1.0) score -= 15;
-            } else {
-                if (avgWave < 0.4) score += 15; else if (avgWave > 0.8) score -= 30; 
-            }
-            if (avgWind > 15) score -= 20;
-            return Math.round(Math.max(0, Math.min(100, score)) / 5) * 5; 
-        }
-
         function updateAdvice() {
             if (!marker || !currentSpotData) return; 
             const startH = parseInt(document.getElementById('time-start').value);
@@ -266,15 +196,8 @@
             if (endH <= startH) endH = startH + 1; 
             const depth = document.getElementById('depth-selector').value;
             
-            const targetDateObj = new Date(dateInput.value);
-            const moonData = getMoonData(targetDateObj);
-            
             const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
             const selectedGuns = allGuns.filter(g => selectedGunIds.includes(g.id));
-
-            let finalScore = currentSpotData.isAmp ? 0 : calculateRoundedScore(startH, endH, depth, currentSpotData.waves, currentSpotData.winds);
-            let scoreColor = finalScore < 45 ? 'var(--windy-red)' : (finalScore <= 70 ? 'var(--mid)' : 'var(--windy-green)');
-            if (currentSpotData.isAmp) scoreColor = 'var(--windy-red)';
 
             let gunAdvice = "";
             if (currentSpotData.isAmp) {
@@ -282,69 +205,72 @@
             } else if (selectedGuns.length === 0) {
                 gunAdvice = "Nessuna arma selezionata nell'inventario.";
             } else {
-                let longGuns = selectedGuns.filter(g => g.length >= 90).sort((a,b) => b.length - a.length);
-                let shortGuns = selectedGuns.filter(g => g.length < 90).sort((a,b) => b.length - a.length);
-                
+                // Calcolo preciso dell'onda media nella fascia oraria
                 let waveSum = 0, count = 0;
-                for(let i = startH; i < endH; i++) { if(currentSpotData.waves[i] !== undefined) { waveSum += currentSpotData.waves[i]; count++; } }
+                for(let i = startH; i < endH; i++) { 
+                    if(currentSpotData.waves[i] !== undefined) { waveSum += currentSpotData.waves[i]; count++; } 
+                }
                 let sessionWave = count > 0 ? waveSum / count : 0;
-                let duration = endH - startH;
                 
-                let recommended = [];
-                
-                if (depth === 'basso' && sessionWave > 0.6) {
-                    recommended.push(shortGuns.length > 0 ? shortGuns[0] : selectedGuns[0]);
-                } else if (duration <= 3) {
-                    if (depth === 'profondo' && longGuns.length > 0) recommended.push(longGuns[0]);
-                    else recommended.push(shortGuns.length > 0 ? shortGuns[0] : selectedGuns[0]);
+                // Variabili per stabilire prima la tecnica ideale, poi l'arma
+                let idealTechnique = "";
+                let tacticDescription = "";
+
+                // ALGORITMO: Determinazione della Tecnica basata su Meteo (Onda) e Batimetrica
+                if (sessionWave <= 0.3) {
+                    if (depth === "basso") {
+                        idealTechnique = "agguato";
+                        tacticDescription = "Mare piatto in poca acqua. Usa l'<b>agguato silenzioso</b> sfruttando ogni minimo riparo.";
+                    } else {
+                        idealTechnique = "aspetto";
+                        tacticDescription = "Condizioni di calma piatta e visibilità ottima. Fai <b>aspetto o caduta</b> per incuriosire il pesce.";
+                    }
+                } else if (sessionWave > 0.3 && sessionWave <= 0.7) {
+                    if (depth === "basso") {
+                        idealTechnique = "schiuma";
+                        tacticDescription = "Moto ondoso in aumento (Risacca). La tecnica ideale è la <b>pesca in schiuma</b> con un'arma dal brandeggio rapido.";
+                    } else {
+                        idealTechnique = "razzolo";
+                        tacticDescription = "Onda formata in superficie. Scorri il fondale con il <b>razzolo</b> esplorando cigli e spacche.";
+                    }
                 } else {
-                    if (longGuns.length > 0 && shortGuns.length > 0) recommended.push(longGuns[0], shortGuns[0]);
-                    else recommended.push(selectedGuns[0]);
+                     idealTechnique = "tana";
+                     tacticDescription = "Mare molto mosso o agitato. Visibilità ridotta, la corrente spinge. Dedicati alla <b>pesca in tana</b> pura.";
                 }
 
-                if (recommended.length === 1) {
-                    let w = recommended[0];
-                    gunAdvice = `Arma consigliata: <b>${w.name}</b>. Copertura tattica: ${depth === 'basso' ? '0-5m in agguato e schiuma' : depth === 'medio' ? '6-15m a scorrere sul ciglio' : '15m+ in caduta e aspetto profondo'}.`;
+                // ALGORITMO: Selezione Arma basata sulla Tecnica
+                // Usiamo .find() per cercare la prima arma selezionata che contiene la tecnica ideale
+                let recommendedGun = selectedGuns.find(gun => gun.techniques.includes(idealTechnique));
+                
+                if (recommendedGun) {
+                    gunAdvice = `
+                        <div style="margin-bottom:8px;">${tacticDescription}</div>
+                        <div style="padding: 8px; border: 1px solid var(--windy-green); border-radius: 4px; background: rgba(16, 185, 129, 0.1);">
+                            <b>Arma Perfetta: ${recommendedGun.name}</b><br>
+                            <span style="font-size: 10px; color: var(--windy-green);">Ottimizzata per: ${idealTechnique.toUpperCase()}</span>
+                        </div>
+                    `;
                 } else {
-                    let midTime = Math.floor((startH + endH) / 2);
-                    gunAdvice = `<b>${startH}:00 - ${midTime}:00</b>: Prima fase con <b>${recommended[0].name}</b>. Copertura ${depth === 'basso' ? '0-4m (aspetto radente)' : depth === 'medio' ? '5-10m (ciglio)' : '15-20m (caduta)'}.<br>
-                                 <b>${midTime}:00 - ${endH}:00</b>: Seconda fase con <b>${recommended[1].name}</b>. Focus su ${depth === 'basso' ? '1-3m (agguato torbido)' : depth === 'medio' ? '8-14m (tana/spacche)' : '18-24m (razzolo)'}.`;
+                    // Fallback: Se non c'è un'arma adatta per la tecnica consigliata, prendiamo la prima dell'inventario
+                    let fallbackGun = selectedGuns[0];
+                    gunAdvice = `
+                        <div style="margin-bottom:8px;">${tacticDescription}</div>
+                        <div style="padding: 8px; border: 1px dashed var(--windy-red); border-radius: 4px; background: rgba(239, 68, 68, 0.1);">
+                            <b>Arma di Ripiego: ${fallbackGun.name}</b><br>
+                            <span style="font-size: 10px; color: var(--windy-red);">Attenzione: non hai selezionato armi per il tipo di pesca richiesto (${idealTechnique}). Dovrai adattarti.</span>
+                        </div>
+                    `;
                 }
             }
 
             document.getElementById('advice-box').innerHTML = `
                 <div class="panel-header" style="background-color: transparent; border-bottom: 1px solid var(--border-line); margin-bottom:10px;">
                     <span style="color:var(--windy-blue);">${currentSpotData.placeName}</span>
-                    <span style="color:${currentSpotData.isAmp ? 'var(--windy-red)' : 'var(--windy-green)'};">${currentSpotData.ampStatus}</span>
                 </div>
                 <div class="panel-content" style="padding-top:0;">
-                    <div class="data-grid">
-                        <div class="score-box">
-                            <div class="score-val" style="color:${scoreColor}">${finalScore}%</div>
-                            <div class="score-lbl">Probabilità</div>
-                        </div>
-                        <div class="astro-box">
-                            <div class="astro-row"><span>🌅 Alba</span> <span>${currentSpotData.sunriseTime}</span></div>
-                            <div class="astro-row"><span>🌇 Tramonto</span> <span>${currentSpotData.sunsetTime}</span></div>
-                            <div class="astro-row"><span>🌙 Luna</span> <span>${moonData.phase}</span></div>
-                            <div class="astro-row" style="border:none; color:var(--windy-blue);">
-                                <span>🐟 Target</span> <span style="text-align:right;">${currentSpotData.isAmp ? '-' : getTargetSpeciesArray(depth, targetDateObj.getMonth()).join(", ")}</span>
-                            </div>
-                        </div>
-                    </div>
                     <div class="tactic-box">
                         <div style="display:flex; align-items:center; margin-bottom: 6px;">
-                            <b style="color:var(--text-main);">Analisi Tattica</b>
-                            <div class="tooltip-container">
-                                <span class="info-icon">i</span>
-                                <div class="tooltip-text">
-                                    <b style="color:var(--windy-blue);">Glossario Tecniche:</b><br><br>
-                                    <b>Aspetto:</b> Appostamento immobile sul fondo sfruttando i ripari naturali per incuriosire il pesce.<br><br>
-                                    <b>Agguato:</b> Avvicinamento furtivo strisciando sul fondo, spesso con mare mosso.<br><br>
-                                    <b>Caduta:</b> Discesa verticale mirata direttamente sulla preda avvistata dalla superficie.<br><br>
-                                    <b>Razzolo:</b> Pesca di ricerca esplorando sistematicamente spacche e rocce.
-                                </div>
-                            </div>
+                            <b style="color:var(--text-main);">Analisi Tattica & Setup</b>
                         </div>
                         ${gunAdvice}
                     </div>
@@ -354,46 +280,35 @@
 
         async function fetchSpotData(lat, lng) {
             const dateObj = new Date(dateInput.value);
-            const moonData = getMoonData(dateObj);
             document.getElementById('forecast-container').style.display = 'none';
-            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--text-muted); font-size: 11px;'>Download telemetria meteo-marina in corso...</div>";
+            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--text-muted); font-size: 11px;'>Connessione server meteo-marini in corso...</div>";
             
             try {
                 let placeName = "Coordinate Radar";
-                let ampStatus = "Consentita";
                 let isAmp = false;
 
                 try {
                     const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
                     const geoData = await geoRes.json();
-                    placeName = geoData.name || geoData.address.village || geoData.address.town || geoData.address.city || "Zona Costiera";
-                    let fullName = geoData.display_name ? geoData.display_name.toLowerCase() : "";
-                    if (fullName.includes("area marina protetta") || fullName.includes("riserva") || fullName.includes("parco nazionale")) {
-                        ampStatus = "Area Interdetta"; isAmp = true;
-                    }
+                    placeName = geoData.name || geoData.address.village || geoData.address.town || "Zona Costiera";
                 } catch(e) {}
 
                 const sDate = dateInput.value;
-                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
+                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
-                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height,wave_direction,wave_period&start_date=${sDate}&end_date=${sDate}`);
+                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height,wave_direction,wave_period,ocean_tide&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
                 const mData = await mRes.json();
 
-                let srTime = "-", ssTime = "-";
-                if(wData.daily && wData.daily.sunrise) srTime = new Date(wData.daily.sunrise[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                if(wData.daily && wData.daily.sunset) ssTime = new Date(wData.daily.sunset[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
                 currentSpotData = {
-                    placeName: placeName, ampStatus: ampStatus, isAmp: isAmp,
-                    sunriseTime: srTime, sunsetTime: ssTime,
+                    placeName: placeName, isAmp: isAmp,
                     winds: wData.hourly.wind_speed_10m, gusts: wData.hourly.wind_gusts_10m,
                     weather: wData.hourly.weather_code,
                     waves: mData.hourly.wave_height.map(w => w || 0),
-                    waveDir: mData.hourly.wave_direction, wavePeriod: mData.hourly.wave_period
+                    waveDir: mData.hourly.wave_direction, wavePeriod: mData.hourly.wave_period,
+                    tides: mData.hourly.ocean_tide 
                 };
 
-                // Pulisce solo il marker principale, gli hotspot sono stati rimossi.
                 if (marker) map.removeLayer(marker);
                 
                 const startH = parseInt(document.getElementById('time-start').value);
@@ -405,48 +320,52 @@
                 marker = L.marker([lat, lng]).bindPopup(popupContent).addTo(map);
                 marker.openPopup();
 
-                buildTimeline(currentSpotData, moonData.age);
+                buildTimeline(currentSpotData);
                 document.getElementById('forecast-container').style.display = 'block';
                 updateAdvice(); 
 
-                if(updateInterval) clearInterval(updateInterval);
-                updateInterval = setInterval(() => {
-                    document.getElementById('update-timer').innerText = "Sincronizzazione...";
-                    triggerFetch();
-                }, 600000); 
-
             } catch (error) {
-                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Connessione server persa.</div>";
+                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore: Impossibile scaricare i dati marini.</div>";
             }
         }
 
-        function buildTimeline(data, moonAge) {
+        function buildTimeline(data) {
             const container = document.getElementById('timeline');
             let rowTime = '<div class="t-row"><div class="t-label">Ora</div>';
             let rowMeteo = '<div class="t-row"><div class="t-label">Cielo</div>';
             let rowWind = '<div class="t-row"><div class="t-label">Vento (kn)</div>';
-            let rowGust = '<div class="t-row"><div class="t-label">Raffiche</div>';
             let rowWave = '<div class="t-row"><div class="t-label">Onda (m)</div>';
-            let rowTide = '<div class="t-row" style="border:none;"><div class="t-label">Stima Marea</div>';
+            let rowPeriod = '<div class="t-row"><div class="t-label">Period (s)</div>';
+            let rowTide = '<div class="t-row" style="border:none;"><div class="t-label">Marea (m)</div>';
 
             for (let i = 5; i <= 20; i++) {
                 let timeStr = i.toString().padStart(2, '0') + ':00';
                 let icon = parseWeather(data.weather[i]);
                 let windSp = Math.round(data.winds[i]);
-                let gustSp = Math.round(data.gusts[i]);
-                let windColor = windSp > 15 ? 'var(--windy-red)' : (windSp > 8 ? 'var(--windy-blue)' : 'var(--text-main)');
                 let waveH = data.waves[i] > 0 ? data.waves[i].toFixed(1) : '-';
                 let dirArrow = getDirectionArrow(data.waveDir[i]);
-                let tideStr = getTideTrend(i, moonAge);
+                let period = data.wavePeriod[i] ? Math.round(data.wavePeriod[i]) + 's' : '-';
+                
+                let currentTide = data.tides && data.tides[i] !== null ? data.tides[i] : undefined;
+                let prevTide = i > 0 && data.tides && data.tides[i-1] !== null ? data.tides[i-1] : currentTide;
+                let tideIcon = "";
+                let tideColor = "var(--text-muted)";
+                
+                if (currentTide !== undefined) {
+                    if (currentTide > prevTide + 0.02) { tideIcon = "🌊"; tideColor = "var(--windy-blue)"; } 
+                    else if (currentTide < prevTide - 0.02) { tideIcon = "📉"; } 
+                    else { tideIcon = "〰️"; } 
+                }
+                let tideStr = currentTide !== undefined ? `<span style="color:${tideColor}">${currentTide.toFixed(2)} ${tideIcon}</span>` : "-";
 
                 rowTime += `<div class="t-cell" style="color:var(--text-main); font-weight:600;">${timeStr}</div>`;
                 rowMeteo += `<div class="t-cell">${icon}</div>`;
-                rowWind += `<div class="t-cell" style="color:${windColor};">${windSp}</div>`;
-                rowGust += `<div class="t-cell" style="color:var(--text-muted);">${gustSp}</div>`;
+                rowWind += `<div class="t-cell">${windSp}</div>`;
                 rowWave += `<div class="t-cell" style="color:var(--windy-blue);">${waveH} ${dirArrow}</div>`;
+                rowPeriod += `<div class="t-cell">${period}</div>`;
                 rowTide += `<div class="t-cell" style="font-size:10px;">${tideStr}</div>`;
             }
-            container.innerHTML = rowTime + '</div>' + rowMeteo + '</div>' + rowWind + '</div>' + rowGust + '</div>' + rowWave + '</div>' + rowTide + '</div>';
+            container.innerHTML = rowTime + '</div>' + rowMeteo + '</div>' + rowWind + '</div>' + rowWave + '</div>' + rowPeriod + '</div>' + rowTide + '</div>';
         }
 
         map.on('click', e => { 
