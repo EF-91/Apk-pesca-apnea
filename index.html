@@ -190,6 +190,13 @@
             return sectors[Math.round(degrees / 45) % 8];
         }
 
+        function getTargetSpeciesArray(depth, month) {
+            const isWarm = (month >= 5 && month <= 10);
+            if (depth === "basso") return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Lecia"] : ["Spigola", "Polpo", "Cefalo", "Seppia"];
+            else if (depth === "medio") return isWarm ? ["Orata", "Corvina", "Serra", "Barracuda", "Dentice"] : ["Sarago", "Tordo", "Corvina", "Grongo"];
+            return isWarm ? ["Dentice", "Ricciola", "Cernia", "Palamita", "Tonno"] : ["Cernia", "Ricciola", "Dentice", "Tordo"];
+        }
+
         function updateAdvice() {
             if (!marker || !currentSpotData) return; 
             const startH = parseInt(document.getElementById('time-start').value);
@@ -277,35 +284,35 @@
             `;
         }
 
-        // --- MOTORE SONAR ESPANSO ---
-        // Ricerca l'acqua aperta fino a ~15-16 km. Ritorna i dati e la posizione di scatto.
+        // --- MOTORE SONAR AGGIORNATO (Evita blocchi server IP) ---
         async function getValidMarineData(baseLat, baseLng, sDate) {
-            const distances = [0, 0.03, 0.06, 0.1, 0.15]; 
-            
-            for (let d of distances) {
-                let points = d === 0 ? [[0,0]] : [
-                    [0, -d], [0, d], [d, 0], [-d, 0], 
-                    [d, -d], [-d, -d], [d, d], [-d, d]
-                ];
+            // Selezioniamo solo pochi offset chiave per non innescare il rate-limiting.
+            // 0.05 = ~5.5km, 0.1 = ~11km, 0.2 = ~22km
+            const offsets = [
+                [0, 0], 
+                [0, -0.05], [0, 0.05], [-0.05, 0], [0.05, 0], 
+                [0, -0.1],  [0, 0.1],  [-0.1, 0],  [0.1, 0],
+                [0, -0.2],  [0, 0.2],  [-0.2, 0],  [0.2, 0]
+            ];
 
-                for (let p of points) {
-                    let testLat = baseLat + p[0];
-                    let testLng = baseLng + p[1];
-                    try {
-                        let res = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${testLat}&longitude=${testLng}&hourly=wave_height,wave_direction,wave_period,ocean_tide&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
-                        
-                        if (!res.ok) continue; 
-                        
-                        let data = await res.json();
-                        
-                        // Cerca se esiste almeno un valore valido di onda (>= 0)
-                        if (data.hourly && data.hourly.wave_height) {
-                            let hasWaterData = data.hourly.wave_height.some(val => val !== null && val >= 0);
-                            if (hasWaterData) {
-                                return { marineData: data, snapLat: testLat, snapLng: testLng, offsetDist: d };
-                            }
+            for (let off of offsets) {
+                let testLat = baseLat + off[0];
+                let testLng = baseLng + off[1];
+                try {
+                    let res = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${testLat}&longitude=${testLng}&hourly=wave_height,wave_direction,wave_period,ocean_tide&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
+                    
+                    if (!res.ok) continue; 
+                    
+                    let data = await res.json();
+                    
+                    if (data.hourly && data.hourly.wave_height) {
+                        let hasWaterData = data.hourly.wave_height.some(val => val !== null);
+                        if (hasWaterData) {
+                            return data; 
                         }
-                    } catch(e) {}
+                    }
+                } catch(e) {
+                    console.log("Tentativo fallito, continuo scansione...");
                 }
             }
             return null; 
@@ -314,7 +321,7 @@
         async function fetchSpotData(lat, lng) {
             const dateObj = new Date(dateInput.value);
             document.getElementById('forecast-container').style.display = 'none';
-            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-blue); font-size: 11px;'>📡 Sonar attivo. Ricerca coordinate in mare aperto...</div>";
+            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-blue); font-size: 11px;'>📡 Stabilizzazione coordinate... scansione mare aperto in corso.</div>";
             
             try {
                 let placeName = "Coordinate Radar";
@@ -330,23 +337,17 @@
                 const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
-                // Avvio della ricerca oceanica estesa
-                const result = await getValidMarineData(lat, lng, sDate);
+                const mData = await getValidMarineData(lat, lng, sDate);
 
-                if (!result) {
+                if (!mData) {
                     document.getElementById('advice-box').innerHTML = `
                         <div class="panel-content" style="text-align:center; color: var(--windy-red); font-size: 12px; padding: 15px;">
-                            <b style="font-size: 14px;">Mare Aperto Non Trovato</b><br><br>
-                            Il sonar si è spinto fino a 15km ma i database geografici non dispongono di celle oceaniche in questo punto.<br>Prova a selezionare una zona meno insenata.
+                            <b style="font-size: 14px;">Zona Critica</b><br><br>
+                            Anche analizzando 22 km di distanza, i server rifiutano il calcolo. L'area potrebbe essere bloccata dai modelli matematici correnti. Prova un punto completamente diverso.
                         </div>`;
                     if (marker) map.removeLayer(marker);
                     return; 
                 }
-
-                // Estraiamo i dati reali e la coordinata "buona" trovata in acqua
-                const mData = result.marineData;
-                const finalLat = result.snapLat;
-                const finalLng = result.snapLng;
 
                 currentSpotData = {
                     placeName: placeName, isAmp: isAmp,
@@ -364,22 +365,16 @@
                 let windName = getWindDirectionName(windDirVal);
                 let currentArrow = getDirectionArrow(mData.hourly.wave_direction[startH] || 0);
 
-                // Riposizioniamo il pallino sulla coordinata marina calcolata!
-                let popupContent = `<div style="font-size:11px;"><b>${placeName}</b><br><i style="color:var(--windy-blue);">(Dato oceanico agganciato qui)</i><br>Vento: ${windName}<br>Mare: ${currentArrow}</div>`;
-                marker = L.marker([finalLat, finalLng]).bindPopup(popupContent).addTo(map);
+                let popupContent = `<div style="font-size:11px;"><b>${placeName}</b><br>Vento: ${windName}<br>Mare: ${currentArrow}</div>`;
+                marker = L.marker([lat, lng]).bindPopup(popupContent).addTo(map);
                 marker.openPopup();
-                
-                // Se la posizione è stata corretta visivamente dal sonar, adattiamo la vista per mostrare il mare aperto
-                if (result.offsetDist > 0) {
-                    map.setView([finalLat, finalLng], 12);
-                }
 
                 buildTimeline(currentSpotData);
                 document.getElementById('forecast-container').style.display = 'block';
                 updateAdvice(); 
 
             } catch (error) {
-                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore: Impossibile scaricare i dati marini. Verifica la connessione.</div>";
+                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore di rete critico. Impossibile scaricare i dati.</div>";
             }
         }
 
