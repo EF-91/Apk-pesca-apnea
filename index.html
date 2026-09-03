@@ -144,7 +144,6 @@
         dateInput.value = today.toISOString().split('T')[0];
         dateInput.min = dateInput.value;
 
-        // INVENTARIO AGGIORNATO: Ogni fucile ha un array di tecniche ("techniques") associate in base a lunghezza e allestimento.
         const allGuns = [
             { id: "ares85", name: "Salvimar Ares 85", techniques: ["agguato", "razzolo"], checked: true },
             { id: "pred75", name: "Salvimar Predathor 75", techniques: ["tana", "schiuma"], checked: true },
@@ -189,6 +188,19 @@
             return arrows[Math.round(degrees / 45) % 8];
         }
 
+        function getWindDirectionName(degrees) {
+            if (degrees === null || degrees === undefined) return "";
+            const sectors = ["N (Tramontana)", "NE (Grecale)", "E (Levante)", "SE (Scirocco)", "S (Ostro)", "SO (Libeccio)", "O (Ponente)", "NO (Maestrale)"];
+            return sectors[Math.round(degrees / 45) % 8];
+        }
+
+        function getTargetSpeciesArray(depth, month) {
+            const isWarm = (month >= 5 && month <= 10);
+            if (depth === "basso") return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Lecia"] : ["Spigola", "Polpo", "Cefalo", "Seppia"];
+            else if (depth === "medio") return isWarm ? ["Orata", "Corvina", "Serra", "Barracuda", "Dentice"] : ["Sarago", "Tordo", "Corvina", "Grongo"];
+            return isWarm ? ["Dentice", "Ricciola", "Cernia", "Palamita", "Tonno"] : ["Cernia", "Ricciola", "Dentice", "Tordo"];
+        }
+
         function updateAdvice() {
             if (!marker || !currentSpotData) return; 
             const startH = parseInt(document.getElementById('time-start').value);
@@ -199,24 +211,25 @@
             const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
             const selectedGuns = allGuns.filter(g => selectedGunIds.includes(g.id));
 
+            let finalScore = 60; 
+            let scoreColor = 'var(--mid)';
+
             let gunAdvice = "";
             if (currentSpotData.isAmp) {
                 gunAdvice = "<span style='color:var(--windy-red); font-weight:bold;'>AREA MARINA PROTETTA. Divieto assoluto di pesca in apnea.</span>";
+                finalScore = 0;
             } else if (selectedGuns.length === 0) {
                 gunAdvice = "Nessuna arma selezionata nell'inventario.";
             } else {
-                // Calcolo preciso dell'onda media nella fascia oraria
                 let waveSum = 0, count = 0;
                 for(let i = startH; i < endH; i++) { 
                     if(currentSpotData.waves[i] !== undefined) { waveSum += currentSpotData.waves[i]; count++; } 
                 }
                 let sessionWave = count > 0 ? waveSum / count : 0;
                 
-                // Variabili per stabilire prima la tecnica ideale, poi l'arma
                 let idealTechnique = "";
                 let tacticDescription = "";
 
-                // ALGORITMO: Determinazione della Tecnica basata su Meteo (Onda) e Batimetrica
                 if (sessionWave <= 0.3) {
                     if (depth === "basso") {
                         idealTechnique = "agguato";
@@ -238,8 +251,6 @@
                      tacticDescription = "Mare molto mosso o agitato. Visibilità ridotta, la corrente spinge. Dedicati alla <b>pesca in tana</b> pura.";
                 }
 
-                // ALGORITMO: Selezione Arma basata sulla Tecnica
-                // Usiamo .find() per cercare la prima arma selezionata che contiene la tecnica ideale
                 let recommendedGun = selectedGuns.find(gun => gun.techniques.includes(idealTechnique));
                 
                 if (recommendedGun) {
@@ -251,7 +262,6 @@
                         </div>
                     `;
                 } else {
-                    // Fallback: Se non c'è un'arma adatta per la tecnica consigliata, prendiamo la prima dell'inventario
                     let fallbackGun = selectedGuns[0];
                     gunAdvice = `
                         <div style="margin-bottom:8px;">${tacticDescription}</div>
@@ -300,6 +310,18 @@
                 const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height,wave_direction,wave_period,ocean_tide&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
                 const mData = await mRes.json();
 
+                // CONTROLLO DI SICUREZZA PER TERRAFERMA
+                if (mData.error || !mData.hourly || !mData.hourly.wave_height) {
+                    document.getElementById('advice-box').innerHTML = `
+                        <div class="panel-content" style="text-align:center; color: var(--windy-red); font-size: 12px; padding: 20px;">
+                            <b style="font-size: 14px;">Rilevata Terraferma</b><br><br>
+                            I server oceanografici non hanno dati per questa coordinata esatta.<br>
+                            Per favore, tocca un punto leggermente più al largo sull'acqua azzurra.
+                        </div>`;
+                    if (marker) map.removeLayer(marker);
+                    return; 
+                }
+
                 currentSpotData = {
                     placeName: placeName, isAmp: isAmp,
                     winds: wData.hourly.wind_speed_10m, gusts: wData.hourly.wind_gusts_10m,
@@ -325,7 +347,7 @@
                 updateAdvice(); 
 
             } catch (error) {
-                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore: Impossibile scaricare i dati marini.</div>";
+                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore: Impossibile scaricare i dati marini. Verifica la connessione.</div>";
             }
         }
 
