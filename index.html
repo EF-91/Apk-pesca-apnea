@@ -3,123 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spot Apnea - Minimal Planner</title>
+    <title>Spot Apnea Pro - Radar</title>
+    <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --bg: #0f1115; --surface: #181a20; --text: #e2e8f0; --text-muted: #64748b;
-            --accent: #3b82f6; --good: #10b981; --mid: #f59e0b; --bad: #ef4444; --border: #272a33;
+            --bg-base: #07080a; --bg-panel: #13151a; --border-line: #22262d;
+            --text-main: #f1f5f9; --text-muted: #94a3b8;
+            --windy-blue: #0ea5e9; --windy-red: #ef4444; --windy-green: #10b981;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg); color: var(--text);
-            margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center;
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-base); color: var(--text-main);
+            margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center;
+            font-size: 13px;
         }
 
-        .container {
-            width: 100%; max-width: 600px; background-color: var(--surface);
-            border-radius: 8px; padding: 20px; margin-bottom: 15px;
-            box-sizing: border-box; border: 1px solid var(--border);
+        .panel {
+            width: 100%; max-width: 650px; background-color: var(--bg-panel);
+            border: 1px solid var(--border-line); margin-bottom: 12px;
+            box-sizing: border-box; overflow: hidden;
         }
 
-        h3 { margin: 0 0 15px 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+        .panel-header {
+            background-color: #1a1d24; padding: 10px 15px; font-size: 11px;
+            text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);
+            border-bottom: 1px solid var(--border-line); display: flex; justify-content: space-between;
+        }
 
-        .input-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+        .panel-content { padding: 15px; }
+
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
         
         select, input[type="date"] {
-            background-color: var(--bg); color: var(--text); border: 1px solid var(--border);
-            padding: 10px; border-radius: 6px; flex: 1; min-width: 130px; font-size: 14px; outline: none; -webkit-appearance: none;
+            background-color: var(--bg-base); color: var(--text-main); border: 1px solid var(--border-line);
+            padding: 8px; font-size: 13px; outline: none; -webkit-appearance: none; width: 100%;
+            box-sizing: border-box;
         }
 
         button { 
-            background-color: var(--text); color: var(--bg); font-weight: 600; cursor: pointer; border: none;
-            padding: 12px; border-radius: 6px; width: 100%; transition: opacity 0.2s; font-size: 14px;
+            background-color: #2563eb; color: #fff; font-weight: 600; cursor: pointer; border: none;
+            padding: 10px; width: 100%; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;
         }
-        button:active { opacity: 0.8; }
+        button:active { background-color: #1d4ed8; }
 
-        .gun-list-container { max-height: 120px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 10px; background-color: var(--bg); }
-        .gun-list { display: grid; grid-template-columns: 1fr; gap: 10px; font-size: 13px; }
+        .gun-list { display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 12px; max-height: 100px; overflow-y: auto; padding-right: 5px; }
         .gun-item { display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1; }
-        .gun-limit-text { font-size: 11px; color: var(--accent); margin-bottom: 5px; display: block; }
-
-        #map { height: 200px; border-radius: 6px; margin-bottom: 15px; border: 1px solid var(--border); z-index: 1; filter: grayscale(20%) contrast(1.1); }
-
-        .result-header { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
-        .score-row { display: flex; align-items: center; gap: 15px; }
-        .score-val { font-size: 48px; font-weight: 300; line-height: 1; }
-        .score-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
         
-        .fish-integration { background-color: rgba(59, 130, 246, 0.08); border-left: 3px solid var(--accent); padding: 10px; border-radius: 0 6px 6px 0; }
-        .fish-list { font-size: 13px; color: var(--text); line-height: 1.5; }
+        #map { height: 220px; width: 100%; filter: contrast(1.2) saturate(1.2) brightness(0.9); }
 
-        .detail-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; font-size: 13px; }
-        .detail-label { color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
+        .data-grid { display: grid; grid-template-columns: auto 1fr; gap: 15px; align-items: stretch; }
+        .score-box { text-align: center; padding: 15px; border-right: 1px solid var(--border-line); }
+        .score-val { font-size: 42px; font-weight: 700; line-height: 1; margin-bottom: 5px; }
+        .score-lbl { font-size: 9px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; }
 
-        .timeline-container { overflow-x: auto; padding-bottom: 5px; }
-        .timeline-row { display: flex; border-bottom: 1px solid var(--border); padding: 8px 0; align-items: center; }
-        .timeline-row.no-border { border-bottom: none; }
-        .row-label { width: 70px; flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
-        .cell { width: 50px; flex-shrink: 0; text-align: center; font-size: 12px; }
+        .astro-box { font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; justify-content: center; }
+        .astro-row { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border-line); padding-bottom: 4px; margin-bottom: 4px; }
+
+        .tactic-box { background-color: rgba(14, 165, 233, 0.05); padding: 10px; border-left: 2px solid var(--windy-blue); margin-top: 10px; font-size: 12px; }
+
+        .timeline-wrapper { overflow-x: auto; background-color: var(--bg-base); border-top: 1px solid var(--border-line); padding: 10px 0; }
+        .t-row { display: flex; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .t-label { width: 75px; flex-shrink: 0; font-size: 10px; color: var(--text-muted); padding-left: 10px; text-transform: uppercase; }
+        .t-cell { width: 45px; flex-shrink: 0; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
+        
+        .update-indicator { color: var(--windy-green); font-size: 9px; animation: blink 2s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <div class="container" style="padding: 10px;">
-        <button id="btn-gps">📍 Usa Posizione Attuale</button>
+    <div class="panel" style="margin-bottom: 8px;">
+        <button id="btn-gps">📍 Radar Posizione</button>
     </div>
     
-    <div id="map" style="width: 100%; max-width: 600px;"></div>
+    <div class="panel" style="padding:0; border: none;">
+        <div id="map"></div>
+    </div>
 
-    <div class="container">
-        <h3>Pianificazione</h3>
-        <div class="input-group"><input type="date" id="target-date"></div>
-        <div class="input-group">
-            <select id="time-start">
-                <option value="5">Dalle: 05:00</option>
-                <option value="6" selected>Dalle: 06:00</option>
-                <option value="9">Dalle: 09:00</option>
-                <option value="14">Dalle: 14:00</option>
-                <option value="17">Dalle: 17:00</option>
-            </select>
-            <select id="time-end">
-                <option value="8">Alle: 08:00</option>
-                <option value="12" selected>Alle: 12:00</option>
-                <option value="16">Alle: 16:00</option>
-                <option value="20">Alle: 20:00</option>
-            </select>
-        </div>
-        <div class="input-group">
-            <select id="depth-selector">
-                <option value="basso" selected>Quota: 0-5m (Schiuma)</option>
-                <option value="medio">Quota: 5-15m (Medio)</option>
-                <option value="profondo">Quota: 15m+ (Profondo)</option>
-            </select>
-        </div>
-        <span class="gun-limit-text">Seleziona Fucili (Massimo 3, il sistema ne consiglierà 2)</span>
-        <div class="gun-list-container">
+    <div class="panel">
+        <div class="panel-header">Parametri di Missione</div>
+        <div class="panel-content">
+            <div class="input-grid">
+                <input type="date" id="target-date" style="grid-column: span 2;">
+                <select id="time-start">
+                    <option value="5">05:00 (Inizio)</option>
+                    <option value="6" selected>06:00 (Inizio)</option>
+                    <option value="9">09:00 (Inizio)</option>
+                    <option value="14">14:00 (Inizio)</option>
+                    <option value="17">17:00 (Inizio)</option>
+                </select>
+                <select id="time-end">
+                    <option value="8">08:00 (Fine)</option>
+                    <option value="12" selected>12:00 (Fine)</option>
+                    <option value="16">16:00 (Fine)</option>
+                    <option value="20">20:00 (Fine)</option>
+                </select>
+                <select id="depth-selector" style="grid-column: span 2;">
+                    <option value="basso" selected>Quota: 0-5m (Risacca/Schiuma)</option>
+                    <option value="medio">Quota: 5-15m (Razzolo/Ciglio)</option>
+                    <option value="profondo">Quota: 15m+ (Profondo/Blu)</option>
+                </select>
+            </div>
+            <div style="font-size:10px; color:var(--windy-blue); margin-bottom:5px; text-transform:uppercase;">Arsenale (Max 3, elaborati 2)</div>
             <div class="gun-list" id="gun-inventory"></div>
         </div>
     </div>
 
-    <div class="container" id="advice-box">
-        <div style="text-align: center; color: var(--text-muted); font-size: 13px;">
-            Tocca uno spot sulla mappa per calcolare il piano.
+    <div class="panel" id="advice-box">
+        <div class="panel-content" style="text-align: center; color: var(--text-muted); font-size: 12px;">
+            In attesa di coordinate radar...
         </div>
     </div>
 
-    <div class="container" id="forecast-container" style="display: none;">
-        <h3>Meteo & Mare</h3>
-        <div class="timeline-container" id="timeline"></div>
+    <div class="panel" id="forecast-container" style="display: none; padding: 0;">
+        <div class="panel-header">
+            <span>Dati Oceanografici</span>
+            <span class="update-indicator" id="update-timer">Sync attivo</span>
+        </div>
+        <div class="timeline-wrapper" id="timeline"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('map').setView([42.0, 15.0], 9);
+        const map = L.map('map', { zoomControl: false }).setView([42.0, 15.0], 6);
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(map);
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(map);
 
         let marker;
+        let updateInterval; // Variabile per il timer dei 10 minuti
         const dateInput = document.getElementById('target-date');
         const today = new Date();
         dateInput.value = today.toISOString().split('T')[0];
@@ -156,49 +168,61 @@
         document.getElementById('time-start').addEventListener('change', updateAdvice);
         document.getElementById('time-end').addEventListener('change', updateAdvice);
         document.getElementById('depth-selector').addEventListener('change', updateAdvice);
-        dateInput.addEventListener('change', () => { if (marker) fetchSpotData(marker.getLatLng().lat, marker.getLatLng().lng); });
+        dateInput.addEventListener('change', triggerFetch);
+
+        function triggerFetch() {
+            if (marker) fetchSpotData(marker.getLatLng().lat, marker.getLatLng().lng);
+        }
 
         function parseWeather(code) {
             if(code <= 1) return "☀️"; if(code <= 3) return "⛅";
-            if(code <= 48) return "🌫️"; if(code <= 67) return "🌧️"; return "⛈️";
+            if(code <= 48) return "🌫"; if(code <= 67) return "🌧"; return "⛈";
         }
 
         function getDirectionArrow(degrees) {
             if (degrees === null || degrees === undefined) return "-";
-            const arrows = ["⬇️", "↙️", "⬅️", "↖️", "⬆️", "↗️", "➡️", "↘️"];
+            const arrows = ["⬇", "↙", "⬅", "↖", "⬆", "↗", "➡", "↘"];
             return arrows[Math.round(degrees / 45) % 8];
         }
 
         function getWindDirectionName(degrees) {
             if (degrees === null || degrees === undefined) return "";
-            const sectors = ["Tramontana", "Grecale", "Levante", "Scirocco", "Ostro", "Libeccio", "Ponente", "Maestrale"];
+            const sectors = ["N (Tramontana)", "NE (Grecale)", "E (Levante)", "SE (Scirocco)", "S (Ostro)", "SO (Libeccio)", "O (Ponente)", "NO (Maestrale)"];
             return sectors[Math.round(degrees / 45) % 8];
         }
 
-        function getMoonPhase(date) {
+        // Calcolo fase lunare ed età per simulazione marea
+        function getMoonData(date) {
             let year = date.getFullYear(), month = date.getMonth() + 1, day = date.getDate();
             if (month < 3) { year--; month += 12; }
             let a = Math.floor(year / 100), b = Math.floor(a / 4), c = 2 - a + b;
             let jd = c + day + Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) - 1524.5;
             let age = ((jd - 2451549.5) / 29.53) % 1 * 29.53;
-            if (age < 2 || age > 27) return "Nuova 🌑 (Maree forti)";
-            if (age < 13) return "Crescente 🌓 (Maree deboli)";
-            if (age < 17) return "Piena 🌕 (Maree forti)";
-            return "Calante 🌗 (Maree deboli)";
+            
+            let phase = "";
+            let coeff = 1.0; // coefficiente di marea
+            if (age < 2 || age > 27) { phase = "Nuova 🌑"; coeff = 1.2; }
+            else if (age < 13) { phase = "Crescente 🌓"; coeff = 0.8; }
+            else if (age < 17) { phase = "Piena 🌕"; coeff = 1.2; }
+            else { phase = "Calante 🌗"; coeff = 0.8; }
+            
+            return { phase: phase, age: age, coeff: coeff };
+        }
+
+        // Simula la direzione della marea in base all'ora lunare
+        function getTideTrend(hour, moonAge) {
+            // Un ciclo di marea dura circa 12h 25m. Calcoliamo un offset basato sull'età della luna.
+            let lunarOffset = (moonAge * 24 * 0.84) % 12; 
+            let adjustedHour = (hour - lunarOffset + 24) % 12;
+            if (adjustedHour < 6) return "🌊 Crescente (In)";
+            return "📉 Calante (Out)";
         }
 
         function getTargetSpeciesArray(depth, month) {
             const isWarm = (month >= 5 && month <= 10);
-            if (depth === "basso") {
-                return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Mormora", "Triglia", "Orata", "Muggine", "Seppia", "Lecia stella", "Occhiata"] 
-                              : ["Spigola", "Polpo", "Cefalo", "Seppia", "Sarago", "Mormora", "Rombo", "Triglia", "Grongo", "Salpa"];
-            } else if (depth === "medio") {
-                return isWarm ? ["Orata", "Sarago", "Corvina", "Serra", "Barracuda", "Dentice", "Palamita", "Cefalo", "Tanuta", "Cernia bruna"] 
-                              : ["Sarago", "Tordo", "Corvina", "Polpo", "Grongo", "Murena", "Spigola", "Seppia", "Dentice", "Orata"];
-            } else {
-                return isWarm ? ["Dentice", "Ricciola", "Cernia", "Dotto", "Palamita", "Tonno", "Barracuda", "Corvina", "Sarago", "Tanuta"] 
-                              : ["Cernia", "Ricciola", "Dentice", "Corvina", "Tordo", "Grongo", "Sarago", "Pagro", "Tanuta", "Dotto"];
-            }
+            if (depth === "basso") return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa", "Lecia"] : ["Spigola", "Polpo", "Cefalo", "Seppia"];
+            else if (depth === "medio") return isWarm ? ["Orata", "Corvina", "Serra", "Barracuda", "Dentice"] : ["Sarago", "Tordo", "Corvina", "Grongo"];
+            return isWarm ? ["Dentice", "Ricciola", "Cernia", "Palamita", "Tonno"] : ["Cernia", "Ricciola", "Dentice", "Tordo"];
         }
 
         function calculateRoundedScore(startH, endH, depth, waves, winds) {
@@ -226,165 +250,172 @@
             let endH = parseInt(document.getElementById('time-end').value);
             if (endH <= startH) endH = startH + 1; 
             const depth = document.getElementById('depth-selector').value;
+            
             const targetDateObj = new Date(dateInput.value);
-            const month = targetDateObj.getMonth();
+            const moonData = getMoonData(targetDateObj);
             
             const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
             const availGuns = allGuns.filter(g => selectedGunIds.includes(g.id)).slice(0, 2);
 
             let finalScore = currentSpotData.isAmp ? 0 : calculateRoundedScore(startH, endH, depth, currentSpotData.waves, currentSpotData.winds);
-            let scoreColor = finalScore < 45 ? 'var(--bad)' : (finalScore <= 70 ? 'var(--mid)' : 'var(--good)');
-            if (currentSpotData.isAmp) scoreColor = 'var(--bad)';
+            let scoreColor = finalScore < 45 ? 'var(--windy-red)' : (finalScore <= 70 ? 'var(--mid)' : 'var(--windy-green)');
+            if (currentSpotData.isAmp) scoreColor = 'var(--windy-red)';
 
             let gunAdvice = "";
             let midTime = Math.floor((startH + endH) / 2);
 
             if (currentSpotData.isAmp) {
-                gunAdvice = "<b>ATTENZIONE:</b> Zona interdetta alla pesca in apnea. Non è consentito immergersi con i fucili in questo spot.";
+                gunAdvice = "<span style='color:var(--windy-red); font-weight:bold;'>AREA MARINA PROTETTA. Divieto assoluto di pesca in apnea.</span>";
             } else if (availGuns.length === 0) {
-                gunAdvice = "Nessuna arma selezionata nell'inventario.";
+                gunAdvice = "Nessuna arma selezionata.";
             } else if (availGuns.length === 1) {
-                gunAdvice = `Usa il <b>${availGuns[0].name}</b> (${availGuns[0].length}cm). Batimetrica operativa consigliata: ${depth === 'basso' ? '0-5m in risacca' : depth === 'medio' ? '6-12m su cigli e risalti' : '15-25m sul ciglio nel blu'}.`;
+                gunAdvice = `Batimetrica target: ${depth === 'basso' ? '0-5m' : depth === 'medio' ? '6-12m' : '15-25m'}. Arma primaria: <b>${availGuns[0].name}</b>.`;
             } else {
                 let longGun = availGuns.reduce((prev, curr) => (prev.length > curr.length) ? prev : curr);
                 let shortGun = availGuns.find(g => g.id !== longGun.id) || availGuns[1];
 
-                if (startH <= 8 && endH > 10) {
-                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Impugna il <b>${longGun.name} (${longGun.length}cm)</b>. Esegui <i>aspetto e agguato radente</i> nella fascia batimetrica <b>${depth === 'basso' ? '0-4m' : depth === 'medio' ? '5-10m' : '15-20m'}</b> sfruttando la scarsa luce.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Passa al <b>${shortGun.name} (${shortGun.length}cm)</b>. Spostati su <i>pesca in tana o razzolo sistematico</i> nella fascia <b>${depth === 'basso' ? '1-3m' : depth === 'medio' ? '8-14m' : '18-24m'}</b> per intercettare i pesci rientrati nei rifugi.`;
-                } else if (startH >= 10 && endH <= 16) {
-                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Usa il <b>${shortGun.name} (${shortGun.length}cm)</b> per <i>ispezione meticolosa di spacche e tana</i> tra i <b>${depth === 'basso' ? '2-5m' : depth === 'medio' ? '8-15m' : '20-30m'}</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Se la corrente apre un taglio freddo, passa al <b>${longGun.name} (${longGun.length}cm)</b> per <i>aspetto a quote operative</i> sui primi risalti batimetrici.`;
-                } else {
-                    gunAdvice = `<b>Dalle ${startH}:00 alle ${midTime}:00</b>: Lavora in <i>caduta e agguato dinamico</i> tra i <b>${depth === 'basso' ? '1-4m' : depth === 'medio' ? '6-12m' : '15-22m'}</b> con il <b>${shortGun.name} (${shortGun.length}cm)</b>.<br><br><b>Dalle ${midTime}:00 alle ${endH}:00</b>: Al calare del sole, imbraccia il <b>${longGun.name} (${longGun.length}cm)</b> ed esegui <i>aspetto in poca acqua</i> (0-5m) per i predatori in caccia.`;
-                }
+                gunAdvice = `<b>${startH}:00 - ${midTime}:00</b>: Setup con <b>${longGun.name}</b>. Copertura zona ${depth === 'basso' ? '0-4m (aspetto)' : depth === 'medio' ? '5-10m (ciglio)' : '15-20m (caduta)'}.<br>
+                             <b>${midTime}:00 - ${endH}:00</b>: Switch su <b>${shortGun.name}</b>. Focus su ${depth === 'basso' ? '1-3m (agguato torbido)' : depth === 'medio' ? '8-14m (tana/spacche)' : '18-24m (razzolo)'}.`;
             }
 
-            const speciesList = currentSpotData.isAmp ? "Nessuna (Zona protetta)" : getTargetSpeciesArray(depth, month).join(", ");
-
             document.getElementById('advice-box').innerHTML = `
-                <div style="font-size: 13px; font-weight: 600; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
-                    <div style="margin-bottom: 5px;">📍 ${currentSpotData.placeName}</div>
-                    <div style="color: ${currentSpotData.isAmp ? 'var(--bad)' : 'var(--good)'}; margin-bottom: 5px;">
-                        ${currentSpotData.ampStatus}
-                    </div>
-                    <div style="color: var(--text-muted); font-size: 12px; font-weight: normal;">
-                        🌅 Alba: ${currentSpotData.sunriseTime} | 🌇 Tramonto: ${currentSpotData.sunsetTime} <br>
-                        🌙 Luna: ${getMoonPhase(targetDateObj)}
-                    </div>
+                <div class="panel-header" style="background-color: transparent; border-bottom: 1px solid var(--border-line); margin-bottom:10px;">
+                    <span style="color:var(--windy-blue);">${currentSpotData.placeName}</span>
+                    <span style="color:${currentSpotData.isAmp ? 'var(--windy-red)' : 'var(--windy-green)'};">${currentSpotData.ampStatus}</span>
                 </div>
-                
-                <div class="result-header">
-                    <div class="score-row">
-                        <div class="score-block">
+                <div class="panel-content" style="padding-top:0;">
+                    <div class="data-grid">
+                        <div class="score-box">
                             <div class="score-val" style="color:${scoreColor}">${finalScore}%</div>
                             <div class="score-lbl">Probabilità</div>
                         </div>
+                        <div class="astro-box">
+                            <div class="astro-row"><span>🌅 Alba</span> <span>${currentSpotData.sunriseTime}</span></div>
+                            <div class="astro-row"><span>🌇 Tramonto</span> <span>${currentSpotData.sunsetTime}</span></div>
+                            <div class="astro-row"><span>🌙 Luna</span> <span>${moonData.phase}</span></div>
+                            <div class="astro-row" style="border:none; color:var(--windy-blue);">
+                                <span>🐟 Target</span> <span style="text-align:right;">${currentSpotData.isAmp ? '-' : getTargetSpeciesArray(depth, targetDateObj.getMonth()).join(", ")}</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="fish-integration">
-                        <div class="detail-label" style="margin-bottom: 4px;">Prede Attese in Zona</div>
-                        <div class="fish-list">${speciesList}</div>
-                    </div>
-                </div>
-
-                <div class="detail-row">
-                    <span class="detail-label">Strategia Tecnica e Batimetrica</span>
-                    <span style="line-height: 1.5; margin-top: 5px;">${gunAdvice}</span>
+                    <div class="tactic-box">${gunAdvice}</div>
                 </div>
             `;
         }
 
         async function fetchSpotData(lat, lng) {
-            document.getElementById('advice-box').innerHTML = "<div style='text-align:center; color: var(--text-muted); font-size: 13px;'>Calcolo condizioni in corso...</div>";
+            const dateObj = new Date(dateInput.value);
+            const moonData = getMoonData(dateObj);
+            document.getElementById('forecast-container').style.display = 'none';
+            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--text-muted); font-size: 11px;'>Download telemetria meteo-marina in corso...</div>";
             
             try {
-                let placeName = "Zona di mare";
-                let ampStatus = "✅ Pesca Consentita";
+                let placeName = "Coordinate Radar";
+                let ampStatus = "Consentita";
                 let isAmp = false;
 
                 try {
                     const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
                     const geoData = await geoRes.json();
                     placeName = geoData.name || geoData.address.village || geoData.address.town || geoData.address.city || "Zona Costiera";
-                    
                     let fullName = geoData.display_name ? geoData.display_name.toLowerCase() : "";
                     if (fullName.includes("area marina protetta") || fullName.includes("riserva") || fullName.includes("parco nazionale")) {
-                        ampStatus = "❌ Divieto: Area Marina Protetta / Riserva";
-                        isAmp = true;
+                        ampStatus = "Area Interdetta"; isAmp = true;
                     }
                 } catch(e) {}
 
                 const sDate = dateInput.value;
-                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
+                // Aggiunto wind_gusts_10m per le raffiche
+                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
                 const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height,wave_direction,wave_period&start_date=${sDate}&end_date=${sDate}`);
                 const mData = await mRes.json();
 
-                let srTime = "N/D", ssTime = "N/D";
+                let srTime = "-", ssTime = "-";
                 if(wData.daily && wData.daily.sunrise) srTime = new Date(wData.daily.sunrise[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 if(wData.daily && wData.daily.sunset) ssTime = new Date(wData.daily.sunset[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-                const startH = parseInt(document.getElementById('time-start').value);
-                const windDirVal = wData.hourly.wind_direction_10m[startH] || 0;
-                const waveDirVal = mData.hourly.wave_direction[startH] || 0;
 
                 currentSpotData = {
                     placeName: placeName, ampStatus: ampStatus, isAmp: isAmp,
                     sunriseTime: srTime, sunsetTime: ssTime,
-                    winds: wData.hourly.wind_speed_10m, weather: wData.hourly.weather_code,
+                    winds: wData.hourly.wind_speed_10m, gusts: wData.hourly.wind_gusts_10m,
+                    weather: wData.hourly.weather_code,
                     waves: mData.hourly.wave_height.map(w => w || 0),
                     waveDir: mData.hourly.wave_direction, wavePeriod: mData.hourly.wave_period
                 };
 
                 if (marker) map.removeLayer(marker);
                 
+                const startH = parseInt(document.getElementById('time-start').value);
+                const windDirVal = wData.hourly.wind_direction_10m[startH] || 0;
                 let windName = getWindDirectionName(windDirVal);
-                let windArrow = getDirectionArrow(windDirVal);
-                let currentArrow = getDirectionArrow(waveDirVal);
+                let currentArrow = getDirectionArrow(mData.hourly.wave_direction[startH] || 0);
 
-                let popupContent = `<b>${placeName}</b><br>💨 Vento: ${windName} ${windArrow} | 🌊 Corrente: ${currentArrow}`;
+                let popupContent = `<div style="font-size:11px;"><b>${placeName}</b><br>Vento: ${windName}<br>Mare: ${currentArrow}</div>`;
                 marker = L.marker([lat, lng]).bindPopup(popupContent).addTo(map);
                 marker.openPopup();
 
-                buildTimeline(currentSpotData);
+                buildTimeline(currentSpotData, moonData.age);
                 document.getElementById('forecast-container').style.display = 'block';
                 updateAdvice(); 
 
+                // Gestione Aggiornamento Automatico ogni 10 min
+                if(updateInterval) clearInterval(updateInterval);
+                updateInterval = setInterval(() => {
+                    document.getElementById('update-timer').innerText = "Sincronizzazione...";
+                    triggerFetch();
+                }, 600000); 
+
             } catch (error) {
-                document.getElementById('advice-box').innerHTML = "<div style='text-align:center; color: var(--bad); font-size: 13px;'>Errore di rete. Riprova.</div>";
+                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Connessione server persa.</div>";
             }
         }
 
-        function buildTimeline(data) {
+        function buildTimeline(data, moonAge) {
             const container = document.getElementById('timeline');
-            let rowTime = '<div class="timeline-row"><div class="row-label">Ora</div>';
-            let rowMeteo = '<div class="timeline-row"><div class="row-label">Cielo</div>';
-            let rowWind = '<div class="timeline-row"><div class="row-label">Vento(kn)</div>';
-            let rowWave = '<div class="timeline-row"><div class="row-label">Onda(m)</div>';
-            let rowDir = '<div class="timeline-row"><div class="row-label">Dir. Mare</div>';
-            let rowPeriod = '<div class="timeline-row no-border"><div class="row-label">Pot.(sec)</div>';
+            let rowTime = '<div class="t-row"><div class="t-label">Ora</div>';
+            let rowMeteo = '<div class="t-row"><div class="t-label">Cielo</div>';
+            let rowWind = '<div class="t-row"><div class="t-label">Vento (kn)</div>';
+            let rowGust = '<div class="t-row"><div class="t-label">Raffiche</div>';
+            let rowWave = '<div class="t-row"><div class="t-label">Onda (m)</div>';
+            let rowTide = '<div class="t-row" style="border:none;"><div class="t-label">Stima Marea</div>';
 
             for (let i = 5; i <= 20; i++) {
                 let timeStr = i.toString().padStart(2, '0') + ':00';
                 let icon = parseWeather(data.weather[i]);
+                
                 let windSp = Math.round(data.winds[i]);
+                let gustSp = Math.round(data.gusts[i]);
+                let windColor = windSp > 15 ? 'var(--windy-red)' : (windSp > 8 ? 'var(--windy-blue)' : 'var(--text-main)');
+                
                 let waveH = data.waves[i] > 0 ? data.waves[i].toFixed(1) : '-';
                 let dirArrow = getDirectionArrow(data.waveDir[i]);
-                let periodVal = data.wavePeriod[i] ? Math.round(data.wavePeriod[i]) + 's' : '-';
+                
+                // Marea calcolata matematicamente
+                let tideStr = getTideTrend(i, moonAge);
 
-                rowTime += `<div class="cell" style="color:var(--text); font-weight:600;">${timeStr}</div>`;
-                rowMeteo += `<div class="cell">${icon}</div>`;
-                rowWind += `<div class="cell">${windSp}</div>`;
-                rowWave += `<div class="cell">${waveH}</div>`;
-                rowDir += `<div class="cell">${dirArrow}</div>`;
-                rowPeriod += `<div class="cell">${periodVal}</div>`;
+                rowTime += `<div class="t-cell" style="color:var(--text-main); font-weight:600;">${timeStr}</div>`;
+                rowMeteo += `<div class="t-cell">${icon}</div>`;
+                rowWind += `<div class="t-cell" style="color:${windColor};">${windSp}</div>`;
+                rowGust += `<div class="t-cell" style="color:var(--text-muted);">${gustSp}</div>`;
+                rowWave += `<div class="t-cell" style="color:var(--windy-blue);">${waveH} ${dirArrow}</div>`;
+                rowTide += `<div class="t-cell" style="font-size:10px;">${tideStr}</div>`;
             }
-            container.innerHTML = rowTime + '</div>' + rowMeteo + '</div>' + rowWind + '</div>' + rowWave + '</div>' + rowDir + '</div>' + rowPeriod + '</div>';
+            container.innerHTML = rowTime + '</div>' + rowMeteo + '</div>' + rowWind + '</div>' + rowGust + '</div>' + rowWave + '</div>' + rowTide + '</div>';
         }
 
-        map.on('click', e => { fetchSpotData(e.latlng.lat, e.latlng.lng); });
+        map.on('click', e => { 
+            if (marker) map.removeLayer(marker); 
+            marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map); 
+            fetchSpotData(e.latlng.lat, e.latlng.lng); 
+        });
+        
         document.getElementById('btn-gps').addEventListener('click', () => {
             if (navigator.geolocation) navigator.geolocation.getCurrentPosition(pos => {
-                map.setView([pos.coords.latitude, pos.coords.longitude], 13);
+                map.setView([pos.coords.latitude, pos.coords.longitude], 11);
+                if (marker) map.removeLayer(marker); 
+                marker = L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map);
                 fetchSpotData(pos.coords.latitude, pos.coords.longitude);
             });
         });
