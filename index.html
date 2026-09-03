@@ -71,7 +71,6 @@
         .update-indicator { color: var(--windy-green); font-size: 9px; animation: blink 2s infinite; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
 
-        /* Correzione visiva per il menu dei livelli Leaflet sul tema scuro */
         .leaflet-control-layers { background-color: var(--bg-panel) !important; color: var(--text-main) !important; border: 1px solid var(--border-line) !important; border-radius: 4px !important; }
         .leaflet-control-layers-list { font-size: 12px; }
     </style>
@@ -131,15 +130,14 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Inizializzazione mappa con coordinate vicine a Praia a Mare
-        const map = L.map('map', { zoomControl: false }).setView([39.9, 15.78], 11);
+        const map = L.map('map', { zoomControl: false }).setView([39.81, 15.78], 14);
 
-        // Definizione dei Livelli (Satellitare e Batimetrica)
+        // 1. Livello Base: Mappa Satellitare
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { 
             maxZoom: 18 
         });
 
-        // WMS EMODnet per batimetria mediterranea dettagliata
+        // 2. Livello Base Alternativo: Sfumature Batimetriche
         const bathymetryLayer = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
             layers: 'emodnet:mean_atlas_land',
             format: 'image/png',
@@ -147,15 +145,29 @@
             maxZoom: 18
         });
 
-        // Attiviamo il satellite di default
+        // 3. NUOVO LIVELLO OVERLAY: Isobate (Linee di profondità)
+        const contoursLayer = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
+            layers: 'emodnet:contours',
+            format: 'image/png',
+            transparent: true,
+            maxZoom: 18
+        });
+
+        // Attiviamo il satellite come base fissa iniziale
         satelliteLayer.addTo(map);
 
-        // Creazione del selettore Livelli sulla mappa
+        // Raggruppiamo i livelli per il menu
         const baseMaps = {
             "Satellitare": satelliteLayer,
-            "Batimetrica": bathymetryLayer
+            "Sfumature Profondità": bathymetryLayer
         };
-        L.control.layers(baseMaps, null, { position: 'topleft' }).addTo(map);
+
+        const overlayMaps = {
+            "Linee Isobate (Metri)": contoursLayer
+        };
+
+        // Aggiungiamo il controllo alla mappa
+        L.control.layers(baseMaps, overlayMaps, { position: 'topleft' }).addTo(map);
 
         let marker;
         let updateInterval; 
