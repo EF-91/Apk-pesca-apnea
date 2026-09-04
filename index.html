@@ -389,6 +389,7 @@
             `;
         }
 
+        // 1. Chiamata separata SOLO per le onde
         async function getValidMarineData(baseLat, baseLng, sDate) {
             const offsets = [
                 [0, 0], [0, -0.05], [0, 0.05], [-0.05, 0], [0.05, 0], 
@@ -398,6 +399,7 @@
                 let testLat = baseLat + off[0];
                 let testLng = baseLng + off[1];
                 try {
+                    // Nota: rimosso ocean_tide da qui per evitare il blocco del server
                     let res = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${testLat}&longitude=${testLng}&hourly=wave_height,wave_direction,wave_period&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
                     if (!res.ok) continue; 
                     let data = await res.json();
@@ -407,6 +409,18 @@
                 } catch(e) {}
             }
             return null; 
+        }
+
+        // 2. Chiamata separata SOLO per la marea (Decoupling)
+        async function getTideData(lat, lng, sDate) {
+            try {
+                let res = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=ocean_tide&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
+                if (res.ok) {
+                    let data = await res.json();
+                    if (data.hourly && data.hourly.ocean_tide) return data.hourly.ocean_tide;
+                }
+            } catch(e) {}
+            return null; // Ritorna null se la chiamata fallisce
         }
 
         async function fetchSpotData(lat, lng) {
@@ -429,6 +443,7 @@
                 const wData = await wRes.json();
                 
                 let mData = await getValidMarineData(lat, lng, sDate);
+                let tideData = await getTideData(lat, lng, sDate); // Chiamata indipendente
                 let isFallback = false;
 
                 if (!mData) {
@@ -454,6 +469,7 @@
                     waves: mData.hourly.wave_height,
                     waveDir: mData.hourly.wave_direction, 
                     wavePeriod: mData.hourly.wave_period,
+                    tides: tideData, // Inseriamo l'array delle maree reali (può essere null)
                     moonAge: moonData.age 
                 };
 
@@ -494,7 +510,23 @@
                 let waveH = (data.waves[i] !== null && data.waves[i] !== undefined) ? data.waves[i].toFixed(1) : '-';
                 let dirArrow = getDirectionArrow(data.waveDir[i]);
                 let period = (data.wavePeriod[i] !== null && data.wavePeriod[i] !== undefined) ? Math.round(data.wavePeriod[i]) + 's' : '-';
-                let tideStr = getTideTrend(i, data.moonAge);
+                
+                // CALCOLO DELLA MAREA
+                let tideStr = "-";
+                // Controllo: Il server ci ha restituito un array di maree valido?
+                if (data.tides && data.tides[i] !== null && data.tides[i] !== undefined) {
+                    let currentTide = data.tides[i];
+                    let prevTide = i > 0 && data.tides[i-1] !== null ? data.tides[i-1] : currentTide;
+                    
+                    if (currentTide >= prevTide) {
+                        tideStr = "<span style='color:var(--windy-blue); font-weight:bold;'>🌊 IN</span>";
+                    } else {
+                        tideStr = "<span style='color:var(--windy-red); font-weight:bold;'>📉 OUT</span>";
+                    }
+                } else {
+                    // Fallback: Se il server non manda le maree, usiamo la matematica lunare
+                    tideStr = getTideTrend(i, data.moonAge);
+                }
 
                 rowTime += `<div class="t-cell" style="color:var(--text-main); font-weight:600;">${timeStr}</div>`;
                 rowMeteo += `<div class="t-cell">${icon}</div>`;
