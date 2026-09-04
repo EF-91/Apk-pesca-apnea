@@ -80,11 +80,11 @@
         .fish-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
         .fish-card { background-color: var(--bg-base); border: 1px solid var(--border-line); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; }
         .fish-img-container { width: 100%; height: 160px; background-color: #1a1d24; display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--border-line); padding: 10px; }
-        .fish-img-container img { width: 90%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.5)); }
+        .fish-img-container img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0px 8px 12px rgba(0,0,0,0.6)); }
         .fish-info { padding: 15px; font-size: 12px; line-height: 1.6; color: var(--text-muted); }
         .fish-title { color: var(--text-main); font-size: 15px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; border-bottom: 1px solid var(--border-line); padding-bottom: 6px; }
         .fish-data span { color: var(--windy-blue); font-weight: 600; }
-        .fish-data-row { margin-bottom: 4px; display: flex; flex-direction: column; }
+        .fish-data-row { margin-bottom: 6px; display: flex; flex-direction: column; }
     </style>
 </head>
 <body>
@@ -100,11 +100,10 @@
         <div id="map"></div>
     </div>
 
-    <!-- PANNELLO: I Miei Spot Salvati (Filtro Dinamico a 10km) -->
+    <!-- PANNELLO: I Miei Spot Salvati -->
     <div class="panel" id="saved-spots-panel">
         <div class="panel-header" style="color:var(--windy-warn); background-color: rgba(234, 179, 8, 0.1);">I Miei Spot Salvati</div>
         <div class="panel-content" id="saved-spots-list" style="max-height: 250px; overflow-y: auto; padding: 10px;">
-            <!-- La lista viene generata da JavaScript -->
         </div>
     </div>
 
@@ -177,7 +176,6 @@
         dateInput.value = today.toISOString().split('T')[0];
         dateInput.min = dateInput.value;
 
-        // --- SISTEMA DI FILTRAGGIO DINAMICO (10 KM) ---
         function loadSavedSpots() {
             savedMarkersLayer.clearLayers();
             let spots = JSON.parse(localStorage.getItem('spot_personali') || "[]");
@@ -185,14 +183,12 @@
             let currentLatLng = marker ? marker.getLatLng() : null;
 
             spots.forEach((spot, index) => {
-                // Calcola la distanza dal punto selezionato. Se non c'è punto, mostra tutti.
                 if (currentLatLng) {
                     let spotLatLng = L.latLng(spot.lat, spot.lng);
                     let distanceMeters = currentLatLng.distanceTo(spotLatLng);
-                    if (distanceMeters > 10000) return; // Esclude i punti oltre i 10km
+                    if (distanceMeters > 10000) return; 
                 }
 
-                // Generazione visiva per i punti che superano il filtro
                 let sm = L.circleMarker([spot.lat, spot.lng], {
                     color: '#eab308', fillColor: '#eab308', fillOpacity: 0.8, radius: 12, weight: 2
                 }).addTo(savedMarkersLayer);
@@ -247,7 +243,6 @@
             loadSavedSpots();
         }
 
-        // --- SALVATAGGIO CON GEOTAGGING ---
         document.getElementById('btn-save-spot').addEventListener('click', () => {
             if (!marker || !currentSpotData) {
                 alert("Tocca la mappa e attendi il calcolo meteo prima di salvare lo spot.");
@@ -265,14 +260,7 @@
             let quotaSpot = prompt("Quota operativa (es. 15-20m):");
             if (quotaSpot === null) return;
             
-            let nuovoSpot = { 
-                lat: coords.lat, 
-                lng: coords.lng, 
-                location: locationName, 
-                pesce: pesceTarget || "-", 
-                tecnica: tecnicaSpot || "-", 
-                quota: quotaSpot || "-" 
-            };
+            let nuovoSpot = { lat: coords.lat, lng: coords.lng, location: locationName, pesce: pesceTarget || "-", tecnica: tecnicaSpot || "-", quota: quotaSpot || "-" };
             
             let spots = JSON.parse(localStorage.getItem('spot_personali') || "[]");
             spots.push(nuovoSpot);
@@ -301,21 +289,168 @@
         }
         
         renderGuns();
-        loadSavedSpots(); // Inizializzazione Lista Globale 
+        loadSavedSpots(); 
+
+        // --- MOTORE VETTORIALE AVANZATO PER LE IMMAGINI DEI PESCI ---
+        function getAdvancedFishSVG(type) {
+            let svgContent = '';
+            
+            switch(type) {
+                case 'spigola':
+                    svgContent = `
+                        <linearGradient id="gSpigola" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#475569"/>
+                            <stop offset="40%" stop-color="#94a3b8"/>
+                            <stop offset="100%" stop-color="#f8fafc"/>
+                        </linearGradient>
+                        <path d="M40,55 L5,30 L15,55 L5,80 Z" fill="url(#gSpigola)" stroke="#1e293b" stroke-width="1.5"/>
+                        <path d="M100,25 Q130,25 150,40 Q170,45 190,55 Q160,70 120,75 Q80,75 40,55 Q60,35 100,25 Z" fill="url(#gSpigola)" stroke="#1e293b" stroke-width="2"/>
+                        <path d="M100,25 L110,5 L140,25" fill="#64748b" stroke="#1e293b" stroke-width="1"/>
+                        <path d="M140,40 Q135,55 140,70" fill="none" stroke="#1e293b" stroke-width="1.5" opacity="0.5"/> <!-- Opercolo -->
+                        <circle cx="145" cy="45" r="3" fill="#0f172a" opacity="0.8"/> <!-- Macchia opercolare -->
+                        <circle cx="165" cy="42" r="3" fill="#f8fafc" stroke="#1e293b"/><circle cx="166" cy="42" r="1.5" fill="#000"/>
+                        <path d="M190,55 Q180,60 175,55" fill="none" stroke="#1e293b" stroke-width="1.5"/>
+                    `; break;
+                case 'orata':
+                    svgContent = `
+                        <linearGradient id="gOrata" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#94a3b8"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#ffffff"/>
+                        </linearGradient>
+                        <path d="M35,55 L5,20 L15,55 L5,90 Z" fill="url(#gOrata)" stroke="#1e293b" stroke-width="1.5"/>
+                        <path d="M90,15 Q140,15 160,35 Q180,50 175,65 Q130,85 80,85 Q40,75 35,55 Q40,25 90,15 Z" fill="url(#gOrata)" stroke="#1e293b" stroke-width="2"/>
+                        <path d="M150,30 L158,40" stroke="#fbbf24" stroke-width="6" stroke-linecap="round"/> <!-- Fascia d'oro -->
+                        <path d="M140,45 Q130,60 140,75" fill="none" stroke="#1e293b" stroke-width="1.5" opacity="0.5"/>
+                        <circle cx="145" cy="48" r="5" fill="#475569" opacity="0.9"/> <!-- Macchia nera -->
+                        <circle cx="160" cy="42" r="3" fill="#fff" stroke="#1e293b"/><circle cx="161" cy="42" r="1.5" fill="#000"/>
+                        <path d="M175,65 Q165,65 165,58" fill="none" stroke="#1e293b" stroke-width="1.5"/>
+                    `; break;
+                case 'sarago':
+                    svgContent = `
+                        <linearGradient id="gSarago" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#f8fafc"/>
+                        </linearGradient>
+                        <path d="M40,55 L10,25 L20,55 L10,85 Z" fill="url(#gSarago)" stroke="#1e293b" stroke-width="1.5"/>
+                        <path d="M95,20 Q135,20 155,40 Q170,55 165,70 Q120,85 80,85 Q45,75 40,55 Q50,30 95,20 Z" fill="url(#gSarago)" stroke="#1e293b" stroke-width="2"/>
+                        <!-- Fasce verticali -->
+                        <path d="M70,26 L65,79 M95,20 L90,83 M120,24 L115,80" stroke="#334155" stroke-width="4" opacity="0.6"/>
+                        <!-- Collare caudale nero -->
+                        <path d="M50,36 L45,73" stroke="#0f172a" stroke-width="8" opacity="0.8"/>
+                        <circle cx="150" cy="42" r="3" fill="#fff" stroke="#1e293b"/><circle cx="151" cy="42" r="1.5" fill="#000"/>
+                    `; break;
+                case 'dentice':
+                    svgContent = `
+                        <linearGradient id="gDentice" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#f87171"/><stop offset="50%" stop-color="#fca5a5"/><stop offset="100%" stop-color="#fef2f2"/>
+                        </linearGradient>
+                        <path d="M35,55 L5,25 L15,55 L5,85 Z" fill="url(#gDentice)" stroke="#991b1b" stroke-width="1.5"/>
+                        <path d="M90,20 Q140,20 160,30 L180,50 Q160,75 110,80 Q70,80 35,55 Q50,30 90,20 Z" fill="url(#gDentice)" stroke="#991b1b" stroke-width="2"/>
+                        <path d="M100,20 L110,5 L140,25" fill="#fca5a5" stroke="#991b1b" stroke-width="1"/>
+                        <circle cx="155" cy="38" r="3" fill="#fff" stroke="#991b1b"/><circle cx="156" cy="38" r="1.5" fill="#000"/>
+                        <path d="M180,50 Q170,55 165,50" fill="none" stroke="#991b1b" stroke-width="1.5"/>
+                        <path d="M175,50 L173,54 M170,52 L168,56" stroke="#fff" stroke-width="1.5"/> <!-- Denti -->
+                    `; break;
+                case 'cernia':
+                    svgContent = `
+                        <linearGradient id="gCernia" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#451a03"/><stop offset="50%" stop-color="#78350f"/><stop offset="100%" stop-color="#b45309"/>
+                        </linearGradient>
+                        <path d="M40,55 L15,35 Q5,55 15,75 Z" fill="url(#gCernia)" stroke="#271c19" stroke-width="1.5"/> <!-- Coda tonda -->
+                        <path d="M90,25 Q130,25 150,40 Q180,50 170,70 Q120,80 80,80 Q45,70 40,55 Q50,35 90,25 Z" fill="url(#gCernia)" stroke="#271c19" stroke-width="2"/>
+                        <path d="M80,27 L90,10 L105,10 L115,25" fill="#78350f" stroke="#271c19"/>
+                        <path d="M140,45 Q135,65 145,75" fill="none" stroke="#271c19" stroke-width="2" opacity="0.6"/> <!-- Opercolo marcato -->
+                        <circle cx="80" cy="45" r="4" fill="#fbbf24" opacity="0.4"/><circle cx="110" cy="55" r="5" fill="#fbbf24" opacity="0.4"/><circle cx="130" cy="65" r="3" fill="#fbbf24" opacity="0.4"/>
+                        <circle cx="155" cy="42" r="3" fill="#fff" stroke="#271c19"/><circle cx="156" cy="42" r="1.5" fill="#000"/>
+                        <path d="M180,50 Q165,65 155,60" fill="none" stroke="#271c19" stroke-width="2"/>
+                    `; break;
+                case 'ricciola':
+                    svgContent = `
+                        <linearGradient id="gRicciola" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#64748b"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#f8fafc"/>
+                        </linearGradient>
+                        <path d="M35,50 L-5,10 L15,50 L-5,90 Z" fill="url(#gRicciola)" stroke="#1e293b" stroke-width="1.5"/> <!-- Coda a falce -->
+                        <path d="M90,25 Q150,30 175,45 Q195,55 175,65 Q130,75 80,75 Q40,65 35,50 Q50,35 90,25 Z" fill="url(#gRicciola)" stroke="#1e293b" stroke-width="2"/>
+                        <path d="M40,50 Q120,45 170,45" stroke="#fef08a" stroke-width="4" fill="none" opacity="0.8"/> <!-- Striscia gialla -->
+                        <circle cx="165" cy="43" r="3" fill="#fff" stroke="#1e293b"/><circle cx="166" cy="43" r="1.5" fill="#000"/>
+                        <path d="M195,55 Q180,60 175,55" fill="none" stroke="#1e293b" stroke-width="1.5"/>
+                    `; break;
+                case 'corvina':
+                    svgContent = `
+                        <linearGradient id="gCorvina" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#451a03"/><stop offset="60%" stop-color="#78350f"/><stop offset="100%" stop-color="#d97706"/>
+                        </linearGradient>
+                        <path d="M35,55 L10,35 L20,55 L10,75 Z" fill="url(#gCorvina)" stroke="#1e293b" stroke-width="1.5"/>
+                        <path d="M80,20 Q130,20 150,40 Q170,55 160,70 Q110,80 70,80 Q40,70 35,55 Q45,30 80,20 Z" fill="url(#gCorvina)" stroke="#1e293b" stroke-width="2"/>
+                        <!-- Pinne pelviche gialle -->
+                        <path d="M90,78 L80,95 L100,90 Z" fill="#fbbf24" stroke="#1e293b" stroke-width="1"/>
+                        <circle cx="145" cy="42" r="3" fill="#fff" stroke="#1e293b"/><circle cx="146" cy="42" r="1.5" fill="#000"/>
+                    `; break;
+                case 'dorata':
+                    svgContent = `
+                        <linearGradient id="gDorata" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#92400e"/><stop offset="50%" stop-color="#d97706"/><stop offset="100%" stop-color="#fcd34d"/>
+                        </linearGradient>
+                        <path d="M40,55 L15,35 Q5,55 15,75 Z" fill="url(#gDorata)" stroke="#451a03" stroke-width="1.5"/>
+                        <path d="M90,25 Q130,25 150,40 Q180,50 170,70 Q120,80 80,80 Q45,70 40,55 Q50,35 90,25 Z" fill="url(#gDorata)" stroke="#451a03" stroke-width="2"/>
+                        <path d="M50,40 Q100,45 150,50 M45,55 Q100,60 140,65" stroke="#78350f" stroke-width="3" opacity="0.4" fill="none"/>
+                        <circle cx="155" cy="42" r="3" fill="#fff" stroke="#451a03"/><circle cx="156" cy="42" r="1.5" fill="#000"/>
+                    `; break;
+                case 'dotto':
+                    svgContent = `
+                        <linearGradient id="gDotto" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#27272a"/><stop offset="50%" stop-color="#52525b"/><stop offset="100%" stop-color="#a1a1aa"/>
+                        </linearGradient>
+                        <path d="M35,50 L10,30 Q5,50 10,70 Z" fill="url(#gDotto)" stroke="#18181b" stroke-width="1.5"/>
+                        <path d="M90,25 Q140,25 160,40 Q185,50 170,65 Q120,75 80,75 Q40,65 35,50 Q50,35 90,25 Z" fill="url(#gDotto)" stroke="#18181b" stroke-width="2"/>
+                        <circle cx="155" cy="40" r="3" fill="#fff" stroke="#18181b"/><circle cx="156" cy="40" r="1.5" fill="#000"/>
+                    `; break;
+                case 'pappagallo':
+                    svgContent = `
+                        <linearGradient id="gPappagallo" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#ef4444"/><stop offset="50%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#eab308"/>
+                        </linearGradient>
+                        <path d="M35,55 L10,35 L20,55 L10,75 Z" fill="#3b82f6" stroke="#1e293b" stroke-width="1.5"/> <!-- Pinna blu -->
+                        <path d="M80,20 Q120,20 145,35 Q170,55 160,75 Q110,85 70,85 Q40,75 35,55 Q45,30 80,20 Z" fill="url(#gPappagallo)" stroke="#1e293b" stroke-width="2"/>
+                        <path d="M165,50 L175,55 L160,65 Z" fill="#f8fafc" stroke="#1e293b" stroke-width="1.5"/> <!-- Becco -->
+                        <circle cx="145" cy="42" r="3" fill="#fff" stroke="#1e293b"/><circle cx="146" cy="42" r="1.5" fill="#000"/>
+                    `; break;
+                case 'leccia':
+                    svgContent = `
+                        <linearGradient id="gLeccia" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#94a3b8"/><stop offset="50%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#ffffff"/>
+                        </linearGradient>
+                        <path d="M40,50 L-10,0 L15,50 L-10,100 Z" fill="url(#gLeccia)" stroke="#1e293b" stroke-width="1.5"/> <!-- Coda altissima -->
+                        <path d="M90,20 Q140,25 160,40 Q180,50 160,60 Q120,70 80,70 Q45,65 40,50 Q50,30 90,20 Z" fill="url(#gLeccia)" stroke="#1e293b" stroke-width="2"/>
+                        <path d="M40,50 L80,50 L100,40 L160,40" fill="none" stroke="#64748b" stroke-width="2"/> <!-- Linea laterale a zig-zag -->
+                        <circle cx="150" cy="40" r="3" fill="#fff" stroke="#1e293b"/><circle cx="151" cy="40" r="1.5" fill="#000"/>
+                    `; break;
+                case 'cefalo':
+                    svgContent = `
+                        <linearGradient id="gCefalo" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#475569"/><stop offset="50%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#e2e8f0"/>
+                        </linearGradient>
+                        <path d="M40,50 L10,25 L20,50 L10,75 Z" fill="url(#gCefalo)" stroke="#1e293b" stroke-width="1.5"/>
+                        <path d="M90,30 Q150,30 170,40 L190,50 L170,60 Q130,70 80,70 Q45,65 40,50 Q50,35 90,30 Z" fill="url(#gCefalo)" stroke="#1e293b" stroke-width="2"/> <!-- Forma allungata, testa piatta -->
+                        <circle cx="165" cy="42" r="3" fill="#fff" stroke="#1e293b"/><circle cx="166" cy="42" r="1.5" fill="#000"/>
+                    `; break;
+            }
+
+            let svgWrap = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 100'>${svgContent}</svg>`;
+            return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgWrap);
+        }
 
         const fishDatabase = [
-            { name: "Spigola (Branzino)", depth: "0 - 15m", period: "Autunno / Inverno", habitat: "Risacca, foci dei fiumi, porti.", size: "25 cm", tactic: "Agguato in schiuma.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/6/64/Dicentrarchus_labrax.jpg" },
-            { name: "Orata", depth: "1 - 30m", period: "Primavera / Autunno", habitat: "Distese di sabbia e fango.", size: "20 cm", tactic: "Aspetto nascosto sul fondo.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/1/10/Sparus_aurata_01.jpg" },
-            { name: "Sarago Maggiore", depth: "0 - 40m", period: "Tutto l'anno", habitat: "Spaccature profonde, franate.", size: "15 cm", tactic: "Pesca in tana, agguato profondo.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/5/52/Diplodus_sargus_sargus.jpg" },
-            { name: "Dentice", depth: "15 - 50m+", period: "Estate / Inizio Autunno", habitat: "Secche al largo, cigliate esposte.", size: "Non spec.", tactic: "Aspetto profondo con immobilismo.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/5/5e/Dentex_dentex.jpg" },
-            { name: "Cernia Bruna", depth: "10 - 50m+", period: "Piena Estate", habitat: "Grandi tane rocciose, relitti.", size: "45 cm", tactic: "Pesca in tana mirata alla testa.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/a/ad/Epinephelus_marginatus_%28Cernia_bruna_-_Dusky_grouper%29_-_Grotte_di_Lavezzi.jpg" },
-            { name: "Ricciola", depth: "0 - 50m+", period: "Tarda Estate / Autunno", habitat: "Acque libere, promontori.", size: "60 cm", tactic: "Aspetto nel blu, caduta.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/e/e9/Seriola_dumerilii.jpg" },
-            { name: "Corvina", depth: "10 - 40m", period: "Primavera / Estate", habitat: "Grotte ampie, praterie di posidonia.", size: "30 cm", tactic: "Tana o agguato.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/1/12/Sciaena_umbra_1.jpg" },
-            { name: "Cernia Dorata", depth: "10 - 50m", period: "Estate / Autunno", habitat: "Scogliere isolate, franate.", size: "45 cm", tactic: "Si stacca dal fondo, ideale caduta.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/8/8d/Epinephelus_costae.jpg" },
-            { name: "Dotto", depth: "15 - 50m+", period: "Estate / Inizio Autunno", habitat: "Cadute nel blu, grandi scogli.", size: "45 cm", tactic: "Diffidente, aspetti lunghi.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/8/87/Mycteroperca_rubra.jpg" },
-            { name: "Pesce Pappagallo", depth: "1 - 30m", period: "Estate", habitat: "Fondali rocciosi superficiali.", size: "Nessuna spec.", tactic: "Agguato tra gli scogli in poca acqua.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/1/19/Sparisoma_cretense_%28Mediterranean_parrotfish%29.jpg" },
-            { name: "Leccia", depth: "0 - 20m", period: "Primavera / Fine Estate", habitat: "Foci, coste sabbiose.", size: "60 cm", tactic: "Aspetto dinamico.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/d/d7/Lichia_amia1.jpg" },
-            { name: "Cefalo (Muggine)", depth: "0 - 10m", period: "Tutto l'anno", habitat: "Acque torbide, porti, foci.", size: "20 cm", tactic: "Agguato in pochissima acqua.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/c/cd/Mugil_cephalus.jpg" }
+            { name: "Spigola (Branzino)", depth: "0 - 15m", period: "Autunno / Inverno", habitat: "Risacca, foci dei fiumi, porti e scogliere basse.", size: "25 cm", tactic: "Agguato in schiuma o aspetto in pochissima acqua. Predatore molto sospettoso ma curioso verso i rumori leggeri.", imageUrl: getFishSVG('spigola') },
+            { name: "Orata", depth: "1 - 30m", period: "Primavera / Autunno", habitat: "Distese di sabbia e fango vicino a scogliere.", size: "20 cm", tactic: "Aspetto ben nascosto sul fondo o agguato estremamente lento. Molto sensibile ai rumori metallici e ai movimenti bruschi.", imageUrl: getFishSVG('orata') },
+            { name: "Sarago Maggiore", depth: "0 - 40m", period: "Tutto l'anno", habitat: "Spaccature profonde, franate, tane rocciose.", size: "15 cm", tactic: "Pesca in tana con torcia corta o agguato profondo scorrendo i lastroni. Spesso si affaccia per una frazione di secondo.", imageUrl: getFishSVG('sarago') },
+            { name: "Dentice", depth: "15 - 50m+", period: "Estate / Inizio Autunno", habitat: "Secche al largo, cigliate esposte alla corrente.", size: "Non spec. (Etico > 1kg)", tactic: "Aspetto profondo con assoluto e prolungato immobilismo. Richiede fucili lunghi e tiri d'imbracciata precisi.", imageUrl: getFishSVG('dentice') },
+            { name: "Cernia Bruna", depth: "10 - 50m+", period: "Piena Estate", habitat: "Grandi tane rocciose, cunicoli complessi, relitti.", size: "45 cm", tactic: "Caduta mirata se fuori tana, altrimenti pesca in tana mirata esclusivamente alla testa per evitare l'arrocco immediato.", imageUrl: getFishSVG('cernia') },
+            { name: "Ricciola", depth: "0 - 50m+", period: "Tarda Estate / Autunno", habitat: "Acque libere (pelagico), promontori molto esposti.", size: "60 cm (Etico > 2kg)", tactic: "Aspetto nel blu o caduta intercettando i branchi in caccia. Reagisce bene a rumori gutturali in caduta.", imageUrl: getFishSVG('ricciola') },
+            { name: "Corvina", depth: "10 - 40m", period: "Primavera / Estate", habitat: "Grotte ampie, praterie di posidonia vicino a rocce.", size: "30 cm", tactic: "Pesca in tana o agguato profondo. Spesso stazionano immobili all'ingresso delle cavità compiendo brevi scatti.", imageUrl: getFishSVG('corvina') },
+            { name: "Cernia Dorata", depth: "10 - 50m", period: "Estate / Autunno", habitat: "Scogliere isolate, franate di massi su fondale sabbioso.", size: "45 cm", tactic: "A differenza della bruna, si stacca spesso dal fondo in candela. Ideale la tecnica della caduta o l'agguato profondo.", imageUrl: getFishSVG('dorata') },
+            { name: "Dotto", depth: "15 - 50m+", period: "Estate / Inizio Autunno", habitat: "Cadute nel blu, grandi scogli e massicci isolati.", size: "45 cm", tactic: "Molto diffidente e scattante, richiede aspetti lunghi e perfettamente occultati o cadute precise prima che si intani.", imageUrl: getFishSVG('dotto') },
+            { name: "Pesce Pappagallo", depth: "1 - 30m", period: "Estate", habitat: "Fondali rocciosi superficiali e zone ricche di alghe.", size: "Nessuna spec. (> 30cm)", tactic: "Agguato tra gli scogli. Specie ormai molto diffusa, si muove lentamente in poca acqua per brucare le alghe.", imageUrl: getFishSVG('pappagallo') },
+            { name: "Leccia", depth: "0 - 20m", period: "Primavera / Fine Estate", habitat: "Foci, coste sabbiose e scogliere basse (inseguimento cefali).", size: "60 cm", tactic: "Aspetto dinamico o richiami in schiuma. Richiede un tiro potente, passante, e un mulinello capiente e ben frizionato.", imageUrl: getFishSVG('leccia') },
+            { name: "Cefalo (Muggine)", depth: "0 - 10m", period: "Tutto l'anno", habitat: "Acque torbide, porti, foci, zona di forte risacca.", size: "20 cm", tactic: "Agguato in pochissima acqua o aspetto breve nella schiuma. Bersaglio scattante, ottimo per allenare i riflessi di tiro.", imageUrl: getFishSVG('cefalo') }
         ];
 
         function renderFishDatabase() {
@@ -330,85 +465,96 @@
                         <div class="fish-data-row">Quota Operativa: <span>${fish.depth}</span></div>
                         <div class="fish-data-row">Stagione Ottimale: <span>${fish.period}</span></div>
                         <div class="fish-data-row">Habitat: <span style="color:var(--text-main); font-weight:normal;">${fish.habitat}</span></div>
-                        <div class="fish-data-row">Approccio: <span style="color:var(--text-main); font-weight:normal;">${fish.tactic}</span></div>
+                        <div class="fish-data-row">Approccio Tattico: <span style="color:var(--text-main); font-weight:normal;">${fish.tactic}</span></div>
                     </div>
                 </div>
             `).join('');
         }
         renderFishDatabase();
 
-        // --- GESTIONE RADAR E PREVISIONI ---
-        startSelect.addEventListener('change', updateAdvice);
-        endSelect.addEventListener('change', updateAdvice);
-        document.getElementById('depth-selector').addEventListener('change', updateAdvice);
-        dateInput.addEventListener('change', () => { if(marker) fetchSpotData(marker.getLatLng().lat, marker.getLatLng().lng); });
+        // --- GESTIONE RADAR, MAPPA E SPOT ---
+        function loadSavedSpots() {
+            savedMarkersLayer.clearLayers();
+            let spots = JSON.parse(localStorage.getItem('spot_personali') || "[]");
+            let listHtml = "";
+            let currentLatLng = marker ? marker.getLatLng() : null;
 
-        function parseWeather(code) {
-            if(code <= 1) return "☀️"; if(code <= 3) return "⛅";
-            if(code <= 48) return "🌫"; if(code <= 67) return "🌧"; return "⛈";
+            spots.forEach((spot, index) => {
+                if (currentLatLng) {
+                    let spotLatLng = L.latLng(spot.lat, spot.lng);
+                    let distanceMeters = currentLatLng.distanceTo(spotLatLng);
+                    if (distanceMeters > 10000) return; 
+                }
+
+                let sm = L.circleMarker([spot.lat, spot.lng], { color: '#eab308', fillColor: '#eab308', fillOpacity: 0.8, radius: 12, weight: 2 }).addTo(savedMarkersLayer);
+                let locationHtml = spot.location ? `<div style="font-size:10px; color:var(--text-muted); margin-bottom:6px;">📍 ${spot.location}</div>` : "";
+                let popupTesto = `<b style="color:var(--windy-warn);">Spot #${index + 1}</b><br>${locationHtml}<span style="font-size:11px;">🐟 Pesce: ${spot.pesce}<br>🎯 Tecnica: ${spot.tecnica}<br>🌊 Quota: ${spot.quota}</span>`;
+                sm.bindPopup(popupTesto);
+
+                listHtml += `
+                    <div style="background-color: var(--bg-base); padding: 10px; margin-bottom: 8px; border: 1px solid var(--border-line); border-radius: 4px; display:flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <div style="color:var(--windy-warn); font-weight:bold; font-size:12px; margin-bottom:2px;">Spot #${index + 1}</div>
+                            ${locationHtml}
+                            <div style="font-size:11px; color:var(--text-muted); line-height:1.4;">
+                                <span style="color:var(--text-main);">🐟 ${spot.pesce}</span><br>🎯 ${spot.tecnica} | 🌊 ${spot.quota}
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="selezionaSpotSalvato(${spot.lat}, ${spot.lng})" style="padding:8px 12px; font-size:10px; background-color:var(--windy-blue); width:auto;">PUNTA</button>
+                            <button onclick="eliminaSpotSalvato(${index})" style="padding:8px 12px; font-size:10px; background-color:var(--windy-red); width:auto;">X</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const containerList = document.getElementById('saved-spots-list');
+            if (spots.length === 0) containerList.innerHTML = "<div style='font-size:11px; color:var(--text-muted); text-align:center;'>Nessuno spot salvato nel database.</div>";
+            else if (listHtml === "") containerList.innerHTML = "<div style='font-size:11px; color:var(--text-muted); text-align:center;'>Nessuno spot a meno di 10km.</div>";
+            else containerList.innerHTML = listHtml;
         }
 
-        function getDirectionArrow(degrees) {
-            if (degrees === null || degrees === undefined) return "-";
-            const arrows = ["⬇", "↙", "⬅", "↖", "⬆", "↗", "➡", "↘"];
-            return arrows[Math.round(degrees / 45) % 8];
+        window.selezionaSpotSalvato = function(lat, lng) {
+            map.setView([lat, lng], 15);
+            if (marker) map.removeLayer(marker); 
+            marker = L.marker([lat, lng]).addTo(map);
+            fetchSpotData(lat, lng);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function getWindDirectionName(degrees) {
-            if (degrees === null || degrees === undefined) return "";
-            const sectors = ["N (Tramontana)", "NE (Grecale)", "E (Levante)", "SE (Scirocco)", "S (Ostro)", "SO (Libeccio)", "O (Ponente)", "NO (Maestrale)"];
-            return sectors[Math.round(degrees / 45) % 8];
+        window.eliminaSpotSalvato = function(index) {
+            let spots = JSON.parse(localStorage.getItem('spot_personali') || "[]");
+            spots.splice(index, 1);
+            localStorage.setItem('spot_personali', JSON.stringify(spots));
+            loadSavedSpots();
         }
 
-        function getMoonData(date) {
-            let year = date.getFullYear(), month = date.getMonth() + 1, day = date.getDate();
-            if (month < 3) { year--; month += 12; }
-            let a = Math.floor(year / 100), b = Math.floor(a / 4), c = 2 - a + b;
-            let jd = c + day + Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) - 1524.5;
-            let age = ((jd - 2451549.5) / 29.53) % 1 * 29.53;
-            let phase = "";
-            if (age < 2 || age > 27) phase = "Nuova 🌑";
-            else if (age < 13) phase = "Crescente 🌓";
-            else if (age < 17) phase = "Piena 🌕";
-            else phase = "Calante 🌗";
-            return { age: age, phase: phase };
-        }
+        document.getElementById('btn-save-spot').addEventListener('click', () => {
+            if (!marker || !currentSpotData) { alert("Tocca la mappa e attendi il calcolo prima di salvare."); return; }
+            let pesceTarget = prompt("Specie bersaglio (es. Dentice, Sarago):"); if (pesceTarget === null) return; 
+            let tecnicaSpot = prompt("Tecnica principale (es. Aspetto, Tana):"); if (tecnicaSpot === null) return;
+            let quotaSpot = prompt("Quota operativa (es. 15-20m):"); if (quotaSpot === null) return;
+            
+            let spots = JSON.parse(localStorage.getItem('spot_personali') || "[]");
+            spots.push({ lat: marker.getLatLng().lat, lng: marker.getLatLng().lng, location: currentSpotData.placeName || "Costa", pesce: pesceTarget || "-", tecnica: tecnicaSpot || "-", quota: quotaSpot || "-" });
+            localStorage.setItem('spot_personali', JSON.stringify(spots));
+            alert("Spot salvato!");
+            loadSavedSpots(); 
+        });
 
-        function getTargetSpeciesArray(depth, month) {
-            const isWarm = (month >= 5 && month <= 10);
-            if (depth === "basso") return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa"] : ["Spigola", "Polpo", "Cefalo"];
-            else if (depth === "medio") return isWarm ? ["Orata", "Corvina", "Serra", "Dentice"] : ["Sarago", "Tordo", "Corvina"];
-            return isWarm ? ["Dentice", "Ricciola", "Cernia", "Palamita"] : ["Cernia", "Ricciola", "Dentice"];
-        }
+        // --- SISTEMA CONSIGLI TATTICI ESTESI ---
+        const extendedTechDetails = {
+            "agguato": "Avvicinati alla preda strisciando silenziosamente sul fondo o sfruttando i ripari naturali (massi, posidonia). L'obiettivo è cogliere il pesce di sorpresa senza farti vedere, sfruttando le ombre. Ideale quando c'è poco moto ondoso e non puoi contare sul rumore del mare per coprire i tuoi movimenti.",
+            "aspetto": "Immobilizzati completamente sul fondo, curando al massimo l'occultamento dietro una roccia o nella posidonia. Mantieni la calma e attendi che i predatori (o i pesci di passaggio) si avvicinino, spinti dalla loro naturale curiosità. Tieni il fucile puntato verso la via di fuga o la direzione di corrente più probabile.",
+            "schiuma": "Muoviti rapidamente e in pochissima acqua, proprio dove frange l'onda. L'acqua mossa e carica di ossigeno copre i tuoi movimenti e il tuo rumore, permettendoti di sorprendere predatori veloci come spigole o cefali che cacciano a riva. Richiede una zavorra adeguata e riflessi di tiro fulminei.",
+            "razzolo": "Ispeziona metodicamente il fondo alternando brevi aspetti a spostamenti dinamici tra le rocce, i cigli e le spacche, per scovare le prede in movimento. È una tecnica di ricerca attiva, ottima da applicare quando il pesce non è in evidente fase di caccia ma staziona nei paraggi.",
+            "tana": "Pesca ravvicinata esplorando sistematicamente le spaccature, i sifoni e i lastroni rocciosi. È assolutamente fondamentale l'uso di una torcia per ispezionare gli anfratti bui. Il tiro deve essere preciso (spesso mirato in testa) per disattivare subito il pesce ed evitare che si arrocche incastrando l'asta."
+        };
 
-        function getWetsuitAdvice(tempAvg, depthStr) {
-            let thickness = "";
-            let t = Math.round(tempAvg);
-            if (t >= 24) thickness = "Lycra o 3mm";
-            else if (t >= 19) thickness = "Giacca 5mm / Pantalone 3mm";
-            else if (t >= 15) thickness = "Giacca 7mm / Pantalone 5mm";
-            else thickness = "Completa 7mm o 8mm + Calzari spessi";
-
-            let advice = `Acqua: ~${t}°C. Setup: <b>${thickness}</b>.`;
-            if (depthStr === "profondo" && t >= 19) {
-                advice += " <span style='color:var(--windy-warn);'>Sotto i 15m il termoclino richiede un sottomuta.</span>";
-            }
-            return advice;
-        }
-
-        function calculateRoundedScore(startH, endH, depth, waveAvg, windAvg) {
-            let score = 50; 
-            if (startH <= 7 || endH >= 18) score += 20; 
-            if (depth === "basso") {
-                if (waveAvg >= 0.3 && waveAvg <= 0.8) score += 25; 
-                else if (waveAvg < 0.2) score -= 15; else if (waveAvg > 1.2) score -= 30; 
-            } else if (depth === "medio") {
-                if (waveAvg <= 0.5) score += 15; else if (waveAvg > 1.0) score -= 25;
-            } else {
-                if (waveAvg < 0.4) score += 20; else if (waveAvg > 0.8) score -= 35; 
-            }
-            if (windAvg > 15) score -= 20;
-            return Math.round(Math.max(0, Math.min(100, score)) / 5) * 5; 
+        function getTactics(waveAvg, depth) {
+            if (waveAvg <= 0.3) return depth === "basso" ? { tech: "agguato", cond: "Mare piatto" } : { tech: "aspetto", cond: "Calma e acqua limpida" };
+            if (waveAvg <= 0.7) return depth === "basso" ? { tech: "schiuma", cond: "Risacca attiva" } : { tech: "razzolo", cond: "Acqua mossa in superficie" };
+            return { tech: "tana", cond: "Condizioni difficili o mare mosso" };
         }
 
         function updateAdvice() {
@@ -418,113 +564,77 @@
             if (endH <= startH) endH = startH + 1; 
             const depth = document.getElementById('depth-selector').value;
             
-            const targetDateObj = new Date(dateInput.value);
-            const moonData = getMoonData(targetDateObj);
             const selectedGunIds = Array.from(document.querySelectorAll('.gun-cb:checked')).map(cb => cb.value);
             const selectedGuns = allGuns.filter(g => selectedGunIds.includes(g.id));
 
             let htmlOutput = "";
-            let warningBanner = "";
-
-            if (currentSpotData.isFallback) {
-                warningBanner = `
-                <div style="background-color: rgba(234, 179, 8, 0.15); border: 1px solid var(--windy-warn); color: var(--windy-warn); padding: 8px; border-radius: 4px; font-size: 11px; margin-bottom: 10px; text-align: left;">
-                    ⚠️ Punto chiuso. Onde stimate in base al vento locale. Temperatura stimata dall'aria.
-                </div>`;
-            }
+            let warningBanner = currentSpotData.isFallback ? `<div style="background-color: rgba(234, 179, 8, 0.15); border: 1px solid var(--windy-warn); color: var(--windy-warn); padding: 8px; border-radius: 4px; font-size: 11px; margin-bottom: 10px; text-align: left;">⚠️ Punto chiuso. Dati meteo/termici stimati in fallback.</div>` : "";
 
             if (selectedGuns.length === 0) {
                 htmlOutput = "Nessuna arma selezionata nell'inventario.";
             } else {
                 let duration = endH - startH;
                 let midTime = Math.floor((startH + endH) / 2);
-
-                let waveSum1 = 0, windSum1 = 0, tempSum1 = 0, count1 = 0;
-                let waveSum2 = 0, windSum2 = 0, tempSum2 = 0, count2 = 0;
+                let waveSum1=0, windSum1=0, tempSum1=0, count1=0, waveSum2=0, windSum2=0, tempSum2=0, count2=0;
 
                 for(let i = startH; i < endH; i++) { 
-                    let w = 0;
+                    let w = currentSpotData.isFallback ? ((currentSpotData.winds[i]||0) < 5 ? 0.1 : ((currentSpotData.winds[i]||0) < 12 ? 0.4 : 1.0)) : (currentSpotData.waves[i] || 0);
                     let wind = currentSpotData.winds[i] || 0;
                     let tWater = currentSpotData.waterTemps[i] || 20; 
 
-                    if (currentSpotData.isFallback) {
-                        if (wind < 5) w = 0.1; else if (wind < 12) w = 0.4; else w = 1.0;
-                    } else {
-                        w = (currentSpotData.waves[i] !== undefined && currentSpotData.waves[i] !== null) ? currentSpotData.waves[i] : 0;
-                    }
-
-                    if (i < midTime || duration <= 3) {
-                        waveSum1 += w; windSum1 += wind; tempSum1 += tWater; count1++;
-                    } else {
-                        waveSum2 += w; windSum2 += wind; tempSum2 += tWater; count2++;
-                    }
+                    if (i < midTime || duration <= 3) { waveSum1+=w; windSum1+=wind; tempSum1+=tWater; count1++; } 
+                    else { waveSum2+=w; windSum2+=wind; tempSum2+=tWater; count2++; }
                 }
                 
-                let wave1 = count1 > 0 ? waveSum1 / count1 : 0;
-                let wind1 = count1 > 0 ? windSum1 / count1 : 0;
-                let temp1 = count1 > 0 ? tempSum1 / count1 : 20;
-                
-                let wave2 = count2 > 0 ? waveSum2 / count2 : 0;
-                let wind2 = count2 > 0 ? windSum2 / count2 : 0;
-                let temp2 = count2 > 0 ? tempSum2 / count2 : 20;
+                let wave1 = count1>0?waveSum1/count1:0, wind1 = count1>0?windSum1/count1:0, temp1 = count1>0?tempSum1/count1:20;
+                let wave2 = count2>0?waveSum2/count2:0, wind2 = count2>0?windSum2/count2:0, temp2 = count2>0?tempSum2/count2:20;
+                let totalWaveAvg = (wave1 + wave2) / (count2 > 0 ? 2 : 1), totalWindAvg = (wind1 + wind2) / (count2 > 0 ? 2 : 1), totalTempAvg = (temp1 + temp2) / (count2 > 0 ? 2 : 1);
 
-                let totalWaveAvg = (wave1 + wave2) / (count2 > 0 ? 2 : 1);
-                let totalWindAvg = (wind1 + wind2) / (count2 > 0 ? 2 : 1);
-                let totalTempAvg = (temp1 + temp2) / (count2 > 0 ? 2 : 1);
-
-                let finalScore = calculateRoundedScore(startH, endH, depth, totalWaveAvg, totalWindAvg);
+                let score = 50; 
+                if (startH <= 7 || endH >= 18) score += 20; 
+                if (depth === "basso") { if (totalWaveAvg >= 0.3 && totalWaveAvg <= 0.8) score += 25; else if (totalWaveAvg < 0.2) score -= 15; else if (totalWaveAvg > 1.2) score -= 30; } 
+                else if (depth === "medio") { if (totalWaveAvg <= 0.5) score += 15; else if (totalWaveAvg > 1.0) score -= 25; } 
+                else { if (totalWaveAvg < 0.4) score += 20; else if (totalWaveAvg > 0.8) score -= 35; }
+                if (totalWindAvg > 15) score -= 20;
+                let finalScore = Math.round(Math.max(0, Math.min(100, score)) / 5) * 5; 
                 let scoreColor = finalScore < 45 ? 'var(--windy-red)' : (finalScore <= 70 ? 'var(--windy-warn)' : 'var(--windy-green)');
-
-                function getTactics(waveAvg) {
-                    if (waveAvg <= 0.3) return depth === "basso" ? { tech: "agguato", cond: "Mare piatto" } : { tech: "aspetto", cond: "Calma e acqua limpida" };
-                    if (waveAvg <= 0.7) return depth === "basso" ? { tech: "schiuma", cond: "Risacca attiva" } : { tech: "razzolo", cond: "Acqua mossa in superficie" };
-                    return { tech: "tana", cond: "Condizioni difficili o mare mosso" };
-                }
 
                 htmlOutput += `
                     <div class="data-grid">
                         <div class="score-box">
-                            <div class="score-val" style="color:${scoreColor}">${finalScore}%</div>
-                            <div class="score-lbl">Pescosità</div>
+                            <div class="score-val" style="color:${scoreColor}">${finalScore}%</div><div class="score-lbl">Pescosità</div>
                         </div>
                         <div class="astro-box">
                             <div class="astro-row"><span>🌅 Alba</span> <span>${currentSpotData.sunriseTime}</span></div>
                             <div class="astro-row"><span>🌇 Tramonto</span> <span>${currentSpotData.sunsetTime}</span></div>
-                            <div class="astro-row"><span>🌙 Luna</span> <span>${moonData.phase}</span></div>
                         </div>
                     </div>
                     ${warningBanner}
-                    
                     <div style="padding: 8px; border-left: 3px solid var(--windy-warn); background: rgba(234, 179, 8, 0.05); margin-bottom: 15px; text-align: left;">
                         <b style="color:var(--windy-warn);">🌡️ Analisi Termica:</b> <span style="font-size:11px; color:var(--text-main);">${getWetsuitAdvice(totalTempAvg, depth)}</span>
                     </div>
                 `;
 
                 if (duration <= 3) {
-                    let t = getTactics((wave1 + wave2) / 2);
+                    let t = getTactics(totalWaveAvg, depth);
                     let gun = selectedGuns.find(g => g.techniques.includes(t.tech)) || selectedGuns[0];
                     let isFb = !gun.techniques.includes(t.tech);
                     let borderCol = isFb ? "var(--windy-red)" : "var(--windy-green)";
-                    let bgCol = isFb ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)";
-
+                    
                     htmlOutput += `
                         <div class="tactic-box" style="text-align:left;">
-                            <div style="margin-bottom:8px;"><b>Condizioni:</b> ${t.cond}.</div>
-                            <div style="padding: 8px; border: 1px ${isFb ? 'dashed' : 'solid'} ${borderCol}; border-radius: 4px; background: ${bgCol};">
+                            <div style="margin-bottom:8px; font-size:13px;"><b style="color:var(--windy-blue);">CONSIGLIO TATTICO: ${t.tech.toUpperCase()}</b> (${t.cond})</div>
+                            <div style="margin-bottom:12px; font-size:11px; line-height:1.5; color:var(--text-muted);">${extendedTechDetails[t.tech]}</div>
+                            <div style="padding: 8px; border: 1px ${isFb ? 'dashed' : 'solid'} ${borderCol}; border-radius: 4px; background: ${isFb ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'};">
                                 <b>${isFb ? 'Arma di Ripiego' : 'Arma Perfetta'}: ${gun.name}</b><br>
                                 <span style="font-size: 10px; color: ${borderCol};">${isFb ? 'Adattamento necessario' : 'Ottimizzata per: ' + t.tech.toUpperCase()}</span>
                             </div>
                         </div>
                     `;
                 } else {
-                    let t1 = getTactics(wave1);
-                    let t2 = getTactics(wave2);
-
+                    let t1 = getTactics(wave1, depth), t2 = getTactics(wave2, depth);
                     let gun1 = selectedGuns.find(g => g.techniques.includes(t1.tech)) || selectedGuns[0];
                     let gun2 = selectedGuns.find(g => g.techniques.includes(t2.tech) && g.id !== gun1.id) || selectedGuns.find(g => g.techniques.includes(t2.tech)) || selectedGuns[selectedGuns.length - 1];
-
-                    let isFb1 = !gun1.techniques.includes(t1.tech);
-                    let isFb2 = !gun2.techniques.includes(t2.tech);
 
                     htmlOutput += `
                         <div class="tactic-box" style="text-align:left;">
@@ -533,13 +643,15 @@
                             <div style="margin-bottom:12px; padding: 10px; border-left: 3px solid var(--windy-blue); background: rgba(14, 165, 233, 0.05);">
                                 <b style="color:var(--text-main); font-size:13px;">Fase 1 (${startH}:00 - ${midTime}:00)</b><br>
                                 <span style="color:var(--windy-blue); font-weight:bold; font-size:11px;">Tecnica: ${t1.tech.toUpperCase()}</span><br>
-                                <span style="color:${isFb1 ? 'var(--windy-red)' : 'var(--windy-green)'}; font-weight:bold;">🎯 Arma: ${gun1.name}</span>
+                                <span style="font-size:11px; display:block; margin:4px 0 8px 0; line-height:1.4; color:var(--text-muted);">${extendedTechDetails[t1.tech]}</span>
+                                <span style="color:${!gun1.techniques.includes(t1.tech) ? 'var(--windy-red)' : 'var(--windy-green)'}; font-weight:bold;">🎯 Arma: ${gun1.name}</span>
                             </div>
 
                             <div style="padding: 10px; border-left: 3px solid var(--windy-blue); background: rgba(14, 165, 233, 0.05);">
                                 <b style="color:var(--text-main); font-size:13px;">Fase 2 (${midTime}:00 - ${endH}:00)</b><br>
                                 <span style="color:var(--windy-blue); font-weight:bold; font-size:11px;">Tecnica: ${t2.tech.toUpperCase()}</span><br>
-                                <span style="color:${isFb2 ? 'var(--windy-red)' : 'var(--windy-green)'}; font-weight:bold;">🎯 Arma: ${gun2.name}</span>
+                                <span style="font-size:11px; display:block; margin:4px 0 8px 0; line-height:1.4; color:var(--text-muted);">${extendedTechDetails[t2.tech]}</span>
+                                <span style="color:${!gun2.techniques.includes(t2.tech) ? 'var(--windy-red)' : 'var(--windy-green)'}; font-weight:bold;">🎯 Arma: ${gun2.name}</span>
                             </div>
                         </div>
                     `;
@@ -550,24 +662,19 @@
                 <div class="panel-header" style="background-color: transparent; border-bottom: 1px solid var(--border-line); margin-bottom:10px;">
                     <span style="color:var(--windy-blue);">${currentSpotData.placeName}</span>
                 </div>
-                <div class="panel-content" style="padding-top:0;">
-                    ${htmlOutput}
-                </div>
+                <div class="panel-content" style="padding-top:0;">${htmlOutput}</div>
             `;
         }
 
+        // --- SISTEMA PREVISIONI OCEANOGRAFICHE ---
         async function getValidMarineData(baseLat, baseLng, sDate) {
             const offsets = [[0, 0], [0, -0.05], [0, 0.05], [-0.05, 0], [0.05, 0]];
             for (let off of offsets) {
-                let testLat = baseLat + off[0];
-                let testLng = baseLng + off[1];
+                let testLat = baseLat + off[0]; let testLng = baseLng + off[1];
                 try {
                     let res = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${testLat}&longitude=${testLng}&hourly=wave_height,wave_direction,wave_period,ocean_temperature&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
-                    if (!res.ok) continue; 
-                    let data = await res.json();
-                    if (data.hourly && data.hourly.wave_height) {
-                        if (data.hourly.wave_height.some(val => val !== null)) return data; 
-                    }
+                    if (!res.ok) continue; let data = await res.json();
+                    if (data.hourly && data.hourly.wave_height && data.hourly.wave_height.some(val => val !== null)) return data; 
                 } catch(e) {}
             }
             return null; 
@@ -576,29 +683,17 @@
         async function getProTides(lat, lng, sDate) {
             let cacheKey = `tide_${Math.round(lat*10)/10}_${Math.round(lng*10)/10}_${sDate}`;
             let cachedDataStr = localStorage.getItem(cacheKey);
-            
             if (cachedDataStr) {
-                let cachedData = JSON.parse(cachedDataStr);
-                let now = new Date().getTime();
-                if (((now - (cachedData.timestamp || 0)) / 60000) < 144) return cachedData.data;
+                let cd = JSON.parse(cachedDataStr);
+                if (((new Date().getTime() - (cd.timestamp || 0)) / 60000) < 144) return cd.data;
             }
-
             try {
                 let dStart = new Date(sDate); dStart.setDate(dStart.getDate() - 1);
                 let dEnd = new Date(sDate); dEnd.setDate(dEnd.getDate() + 2);
-                let startIso = dStart.toISOString().split('T')[0];
-                let endIso = dEnd.toISOString().split('T')[0];
-                
-                let res = await fetch(`https://api.stormglass.io/v2/tide/extremes/point?lat=${lat}&lng=${lng}&start=${startIso}&end=${endIso}`, {
-                    headers: { 'Authorization': STORMGLASS_API_KEY }
-                });
-                
+                let res = await fetch(`https://api.stormglass.io/v2/tide/extremes/point?lat=${lat}&lng=${lng}&start=${dStart.toISOString().split('T')[0]}&end=${dEnd.toISOString().split('T')[0]}`, { headers: { 'Authorization': STORMGLASS_API_KEY } });
                 if (res.ok) {
                     let json = await res.json();
-                    if(json.data) {
-                        localStorage.setItem(cacheKey, JSON.stringify({timestamp: new Date().getTime(), data: json.data}));
-                        return json.data;
-                    }
+                    if(json.data) { localStorage.setItem(cacheKey, JSON.stringify({timestamp: new Date().getTime(), data: json.data})); return json.data; }
                 }
             } catch(e) {}
             return null;
@@ -633,19 +728,15 @@
                 }
 
                 let waterTemps = mData.hourly.ocean_temperature;
-                if (isFallback || !waterTemps || waterTemps[12] === null) {
-                    waterTemps = wData.hourly.temperature_2m.map(t => t - 3); 
-                }
+                if (isFallback || !waterTemps || waterTemps[12] === null) waterTemps = wData.hourly.temperature_2m.map(t => t - 3); 
 
                 let srTime = "-", ssTime = "-";
                 if(wData.daily && wData.daily.sunrise) srTime = new Date(wData.daily.sunrise[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 if(wData.daily && wData.daily.sunset) ssTime = new Date(wData.daily.sunset[0]).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
                 currentSpotData = {
-                    placeName: placeName, isFallback: isFallback,
-                    sDateStr: sDate, 
-                    winds: wData.hourly.wind_speed_10m, weather: wData.hourly.weather_code,
-                    waterTemps: waterTemps,
+                    placeName: placeName, isFallback: isFallback, sDateStr: sDate, 
+                    winds: wData.hourly.wind_speed_10m, weather: wData.hourly.weather_code, waterTemps: waterTemps,
                     sunriseTime: srTime, sunsetTime: ssTime,
                     waves: mData.hourly.wave_height, waveDir: mData.hourly.wave_direction, wavePeriod: mData.hourly.wave_period,
                     tideExtremes: tideExtremes, moonAge: moonData.age 
@@ -655,18 +746,14 @@
                 
                 const startH = parseInt(document.getElementById('time-start').value);
                 const windDirVal = wData.hourly.wind_direction_10m[startH] || 0;
-                let windName = getWindDirectionName(windDirVal);
                 let currentArrow = isFallback || mData.hourly.wave_direction[startH] === null ? "-" : getDirectionArrow(mData.hourly.wave_direction[startH]);
 
-                let popupContent = `<div style="font-size:11px;"><b>${placeName}</b><br>Vento: ${windName}<br>Mare: ${currentArrow}</div>`;
-                marker = L.marker([lat, lng]).bindPopup(popupContent).addTo(map);
+                marker = L.marker([lat, lng]).bindPopup(`<div style="font-size:11px;"><b>${placeName}</b><br>Vento: ${getWindDirectionName(windDirVal)}<br>Mare: ${currentArrow}</div>`).addTo(map);
                 marker.openPopup();
 
                 buildTimeline(currentSpotData);
                 document.getElementById('forecast-container').style.display = 'block';
                 updateAdvice(); 
-                
-                // Aggiorna visivamente il filtro a 10km dopo aver posizionato il nuovo radar
                 loadSavedSpots();
 
             } catch (error) {
@@ -677,7 +764,6 @@
         function buildTimeline(data) {
             const container = document.getElementById('timeline');
             let isProTide = data.tideExtremes !== null;
-
             let rowTime = '<div class="t-row"><div class="t-label">Ora</div>';
             let rowMeteo = '<div class="t-row"><div class="t-label">Cielo</div>';
             let rowWind = '<div class="t-row"><div class="t-label">Vento (kn)</div>';
@@ -691,29 +777,18 @@
                 let timeStr = i.toString().padStart(2, '0') + ':00';
                 let icon = parseWeather(data.weather[i]);
                 let windSp = Math.round(data.winds[i]);
-                
                 let waveH = (data.waves[i] !== null && data.waves[i] !== undefined) ? data.waves[i].toFixed(1) : '-';
                 let dirArrow = getDirectionArrow(data.waveDir[i]);
                 let period = (data.waves[i] !== null && data.wavePeriod[i] !== null) ? Math.round(data.wavePeriod[i]) + 's' : '-';
                 
                 let tideStr = "-";
                 if (isProTide) {
-                    let targetDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], i, 0, 0);
-                    let targetMs = targetDate.getTime();
-                    
+                    let targetMs = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], i, 0, 0).getTime();
                     let nextExtreme = data.tideExtremes.find(ex => new Date(ex.time).getTime() > targetMs);
-                    if (nextExtreme) {
-                        if (nextExtreme.type === "high") {
-                            tideStr = "<span style='color:var(--windy-blue); font-weight:bold;'>🌊 IN</span>";
-                        } else {
-                            tideStr = "<span style='color:var(--windy-red); font-weight:bold;'>📉 OUT</span>";
-                        }
-                    }
+                    if (nextExtreme) tideStr = nextExtreme.type === "high" ? "<span style='color:var(--windy-blue); font-weight:bold;'>🌊 IN</span>" : "<span style='color:var(--windy-red); font-weight:bold;'>📉 OUT</span>";
                 } else {
-                    let lunarOffset = (data.moonAge * 24 * 0.84) % 12; 
-                    let adjustedHour = (i - lunarOffset + 24) % 12;
-                    if (adjustedHour < 6) tideStr = "<span style='color:var(--windy-blue); font-weight:bold;'>🌊 IN</span>";
-                    else tideStr = "<span style='color:var(--windy-red); font-weight:bold;'>📉 OUT</span>";
+                    let adjustedHour = (i - ((data.moonAge * 24 * 0.84) % 12) + 24) % 12;
+                    tideStr = adjustedHour < 6 ? "<span style='color:var(--windy-blue); font-weight:bold;'>🌊 IN</span>" : "<span style='color:var(--windy-red); font-weight:bold;'>📉 OUT</span>";
                 }
 
                 rowTime += `<div class="t-cell" style="color:var(--text-main); font-weight:600;">${timeStr}</div>`;
