@@ -186,86 +186,85 @@
         }
         renderGuns();
 
-        // --- SISTEMA DATABASE PESCI AGGIORNATO CON FOTO REALI ---
+        // --- SISTEMA DATABASE PESCI AGGIORNATO CON FISHBASE (Senza blocchi Hotlinking) ---
         const fishDatabase = [
             { 
                 name: "Spigola (Branzino)", depth: "0 - 15m", period: "Autunno / Inverno", 
                 habitat: "Risacca, foci dei fiumi, porti, fondali misti sabbia e posidonia.", 
                 size: "25 cm", tactic: "Agguato in schiuma, aspetto in pochissima acqua. Predatore molto sospettoso ma curioso.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/6/64/Dicentrarchus_labrax.jpg", placeholder: "🐟" 
+                imageUrl: "https://www.fishbase.se/images/species/Dilab_u0.jpg", placeholder: "🐟" 
             },
             { 
                 name: "Orata", depth: "1 - 30m", period: "Primavera / Autunno", 
                 habitat: "Distese di sabbia e fango vicino a scogliere, o prossimità di allevamenti di mitili.", 
                 size: "20 cm", tactic: "Aspetto nascosto sul fondo, agguato estremamente lento. Sensibile ai rumori metallici.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/1/10/Sparus_aurata_01.jpg", placeholder: "🐠" 
+                imageUrl: "https://www.fishbase.se/images/species/Spaur_u0.jpg", placeholder: "🐠" 
             },
             { 
                 name: "Sarago Maggiore", depth: "0 - 40m", period: "Tutto l'anno", 
                 habitat: "Spaccature profonde, franate, tane rocciose buie e comunicanti.", 
                 size: "15 cm", tactic: "Pesca in tana con torcia corta, agguato profondo scorrendo i lastroni rocciosi.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/5/52/Diplodus_sargus_sargus.jpg", placeholder: "🐡" 
+                imageUrl: "https://www.fishbase.se/images/species/Disar_u0.jpg", placeholder: "🐡" 
             },
             { 
                 name: "Dentice", depth: "15 - 50m+", period: "Estate / Inizio Autunno", 
                 habitat: "Secche al largo, cigliate profonde esposte alla corrente primaria, agglomerati rocciosi isolati.", 
                 size: "Non spec. (Etico > 1kg)", tactic: "Aspetto profondo con assoluto e prolungato immobilismo. Fucile lungo potente.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/5/5e/Dentex_dentex.jpg", placeholder: "🦈" 
+                imageUrl: "https://www.fishbase.se/images/species/Deden_u2.jpg", placeholder: "🦈" 
             },
             { 
                 name: "Cernia Bruna", depth: "10 - 50m+", period: "Piena Estate", 
                 habitat: "Grandi tane rocciose, cunicoli complessi e bui, relitti.", 
                 size: "45 cm", tactic: "Caduta mirata se fuori tana, altrimenti pesca in tana mirata alla testa per evitare l'arrocco.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/a/ad/Epinephelus_marginatus_%28Cernia_bruna_-_Dusky_grouper%29_-_Grotte_di_Lavezzi.jpg", placeholder: "🪨" 
+                imageUrl: "https://www.fishbase.se/images/species/Epmar_u2.jpg", placeholder: "🪨" 
             },
             { 
                 name: "Ricciola", depth: "0 - 50m+", period: "Tarda Estate / Autunno", 
                 habitat: "Acque libere (pelagico), promontori esposti a forti correnti o pareti verticali.", 
                 size: "60 cm (Consigliato > 2kg)", tactic: "Aspetto nel blu, caduta intercettando i branchi in caccia vicino alla superficie.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/e/e9/Seriola_dumerilii.jpg", placeholder: "🌊" 
+                imageUrl: "https://www.fishbase.se/images/species/Sedum_u1.jpg", placeholder: "🌊" 
             },
             { 
                 name: "Corvina", depth: "10 - 40m", period: "Primavera / Estate", 
                 habitat: "Grotte ampie, praterie di posidonia vicino a rocce, relitti.", 
                 size: "30 cm", tactic: "Pesca in tana o agguato profondo. Spesso stazionano immobili all'ingresso delle cavità in piccoli branchi.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/1/12/Sciaena_umbra_1.jpg", placeholder: "🐟" 
+                imageUrl: "https://www.fishbase.se/images/species/Scumb_u0.jpg", placeholder: "🐟" 
             },
             { 
                 name: "Cernia Dorata (Dotto falso)", depth: "10 - 50m", period: "Estate / Autunno", 
                 habitat: "Scogliere isolate, franate di massi su fondale sabbioso.", 
                 size: "45 cm", tactic: "A differenza della bruna, si stacca spesso dal fondo. Ideale la caduta o l'agguato profondo.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/8/8d/Epinephelus_costae.jpg", placeholder: "🪨" 
+                imageUrl: "https://www.fishbase.se/images/species/Epcos_u1.jpg", placeholder: "🪨" 
             },
             { 
                 name: "Dotto", depth: "15 - 50m+", period: "Estate / Inizio Autunno", 
                 habitat: "Cadute nel blu, grandi scogli isolati. Nuota staccato dal fondo.", 
                 size: "45 cm", tactic: "Molto diffidente e scattante, richiede aspetti lunghi e ben occultati o cadute precisissime.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/8/87/Mycteroperca_rubra.jpg", placeholder: "🦈" 
+                imageUrl: "https://www.fishbase.se/images/species/Myrub_u1.jpg", placeholder: "🦈" 
             },
             { 
                 name: "Pesce Pappagallo", depth: "1 - 30m", period: "Estate", 
                 habitat: "Fondali rocciosi superficiali e zone ricche di alghe di cui si nutre.", 
                 size: "Nessuna spec. (> 30cm)", tactic: "Agguato tra gli scogli. Specie in forte espansione, si muove lentamente in poca acqua.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/1/19/Sparisoma_cretense_%28Mediterranean_parrotfish%29.jpg", placeholder: "🐠" 
+                imageUrl: "https://www.fishbase.se/images/species/Spcre_u0.jpg", placeholder: "🐠" 
             },
             { 
                 name: "Leccia", depth: "0 - 20m", period: "Primavera / Fine Estate", 
                 habitat: "Foci, porti, coste sabbiose e scogliere basse alla ricerca di branchi di cefali.", 
                 size: "60 cm (Consigliato > 3kg)", tactic: "Aspetto dinamico o richiami sonori in schiuma. Richiede un tiro potente e un mulinello capiente.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/d/d7/Lichia_amia1.jpg", placeholder: "🌊" 
+                imageUrl: "https://www.fishbase.se/images/species/Liami_u0.jpg", placeholder: "🌊" 
             },
             { 
                 name: "Cefalo (Muggine)", depth: "0 - 10m", period: "Tutto l'anno (Passo autunnale)", 
                 habitat: "Acque torbide, porti, foci, zona di forte risacca.", 
                 size: "20 cm", tactic: "Agguato in pochissima acqua o aspetto breve nella schiuma. Ottimo per testare i riflessi.", 
-                imageUrl: "https://upload.wikimedia.org/wikipedia/commons/c/cd/Mugil_cephalus.jpg", placeholder: "🐟" 
+                imageUrl: "https://www.fishbase.se/images/species/Mucep_u0.jpg", placeholder: "🐟" 
             }
         ];
 
         function renderFishDatabase() {
             const container = document.getElementById('fish-grid');
             container.innerHTML = fishDatabase.map(fish => {
-                // Generazione intelligente: prova a caricare la foto, in caso di errore di rete mostra l'emoji come fallback
                 let mediaElement = fish.imageUrl !== "" 
                     ? `<img src="${fish.imageUrl}" alt="${fish.name}" onerror="this.outerHTML='<div class=\\'fish-img-placeholder\\'>${fish.placeholder}</div>';">` 
                     : `<div class="fish-img-placeholder">${fish.placeholder}</div>`;
@@ -497,7 +496,8 @@
 
         async function getValidMarineData(baseLat, baseLng, sDate) {
             const offsets = [
-                [0, 0], [0, -0.05], [0, 0.05], [-0.05, 0], [0.05, 0]
+                [0, 0], [0, -0.05], [0, 0.05], [-0.05, 0], [0.05, 0], 
+                [-0.05, -0.05], [0.05, -0.05], [0, -0.1], [0, 0.1], [-0.1, -0.1]
             ];
             for (let off of offsets) {
                 let testLat = baseLat + off[0];
@@ -560,7 +560,7 @@
             const moonData = getMoonData(dateObj); 
 
             document.getElementById('forecast-container').style.display = 'none';
-            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-blue); font-size: 11px;'>📡 Scansione parametri e maree in corso...</div>";
+            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-blue); font-size: 11px;'>📡 Scansione parametri e calcolo maree PRO in corso...</div>";
             
             try {
                 let placeName = "Coordinate Radar";
@@ -612,7 +612,7 @@
                 updateAdvice(); 
 
             } catch (error) {
-                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore di rete. Assicurati di essere connesso a Internet.</div>";
+                document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore di rete. Riprova.</div>";
             }
         }
 
