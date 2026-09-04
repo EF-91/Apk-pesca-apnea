@@ -37,7 +37,7 @@
 
         .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
         
-        select, input[type="date"] {
+        select, input[type="date"], input[type="text"], input[type="password"] {
             background-color: var(--bg-base); color: var(--text-main); border: 1px solid var(--border-line);
             padding: 8px; font-size: 13px; outline: none; -webkit-appearance: none; width: 100%;
             box-sizing: border-box; border-radius: 4px;
@@ -87,6 +87,20 @@
         <div id="map"></div>
     </div>
 
+    <!-- Modulo API KEY (Decoupling) -->
+    <div class="panel" style="border-color: var(--windy-blue);">
+        <div class="panel-header" style="color:var(--text-main); background-color: rgba(14, 165, 233, 0.1);">Sincronizzazione Maree PRO</div>
+        <div class="panel-content">
+            <div style="font-size:11px; margin-bottom:8px; color:var(--text-muted);">
+                Ottieni la precisione idrodinamica inserendo un'API Key gratuita creata su <a href="https://stormglass.io/" target="_blank" style="color:var(--windy-blue);">Stormglass.io</a>.
+            </div>
+            <div style="display:flex; gap:8px;">
+                <input type="password" id="api-key-input" placeholder="Incolla la tua chiave Stormglass..." style="flex:1; font-size:11px;">
+                <button id="btn-save-key" style="width:auto; padding:8px 15px; background-color:var(--windy-green);">Salva</button>
+            </div>
+        </div>
+    </div>
+
     <div class="panel">
         <div class="panel-header">Parametri di Missione</div>
         <div class="panel-content">
@@ -113,7 +127,7 @@
 
     <div class="panel" id="forecast-container" style="display: none; padding: 0;">
         <div class="panel-header">
-            <span>Dati Oceanografici Alta Precisione</span>
+            <span>Dati Oceanografici</span>
             <span class="update-indicator" id="update-timer">Sync attivo</span>
         </div>
         <div class="timeline-wrapper" id="timeline"></div>
@@ -121,6 +135,23 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Gestione API Key nel Local Storage
+        const keyInput = document.getElementById('api-key-input');
+        const savedKey = localStorage.getItem('stormglass_key');
+        if (savedKey) keyInput.value = savedKey;
+
+        document.getElementById('btn-save-key').addEventListener('click', () => {
+            const k = keyInput.value.trim();
+            if(k) {
+                localStorage.setItem('stormglass_key', k);
+                alert("Chiave Stormglass salvata. Le maree saranno ora elaborate dai server idrodinamici reali.");
+            } else {
+                localStorage.removeItem('stormglass_key');
+                alert("Chiave rimossa. L'app tornerà al modello matematico lunare.");
+            }
+        });
+
+        // Generazione Orari
         const startSelect = document.getElementById('time-start');
         const endSelect = document.getElementById('time-end');
         for(let i = 5; i <= 20; i++) {
@@ -162,7 +193,6 @@
             container.innerHTML = allGuns.map(gun => `
                 <label class="gun-item"><input type="checkbox" value="${gun.id}" class="gun-cb" ${gun.checked ? 'checked' : ''}>${gun.name} <span style="font-size:9px; color:var(--text-muted);">(${gun.techniques.join(', ')})</span></label>
             `).join('');
-
             document.querySelectorAll('.gun-cb').forEach(cb => { cb.addEventListener('change', updateAdvice); });
         }
         renderGuns();
@@ -205,6 +235,7 @@
             return { age: age, phase: phase };
         }
 
+        // Funzione di Fallback Lunare
         function getTideTrend(hour, moonAge) {
             let lunarOffset = (moonAge * 24 * 0.84) % 12; 
             let adjustedHour = (hour - lunarOffset + 24) % 12;
@@ -222,20 +253,15 @@
         function calculateRoundedScore(startH, endH, depth, waveAvg, windAvg) {
             let score = 50; 
             if (startH <= 7 || endH >= 18) score += 20; 
-            
             if (depth === "basso") {
                 if (waveAvg >= 0.3 && waveAvg <= 0.8) score += 25; 
-                else if (waveAvg < 0.2) score -= 15; 
-                else if (waveAvg > 1.2) score -= 30; 
+                else if (waveAvg < 0.2) score -= 15; else if (waveAvg > 1.2) score -= 30; 
             } else if (depth === "medio") {
-                if (waveAvg <= 0.5) score += 15; 
-                else if (waveAvg > 1.0) score -= 25;
+                if (waveAvg <= 0.5) score += 15; else if (waveAvg > 1.0) score -= 25;
             } else {
-                if (waveAvg < 0.4) score += 20; 
-                else if (waveAvg > 0.8) score -= 35; 
+                if (waveAvg < 0.4) score += 20; else if (waveAvg > 0.8) score -= 35; 
             }
             if (windAvg > 15) score -= 20;
-            
             return Math.round(Math.max(0, Math.min(100, score)) / 5) * 5; 
         }
 
@@ -257,13 +283,11 @@
             if (currentSpotData.isFallback) {
                 warningBanner = `
                 <div style="background-color: rgba(234, 179, 8, 0.15); border: 1px solid var(--windy-warn); color: var(--windy-warn); padding: 8px; border-radius: 4px; font-size: 11px; margin-bottom: 10px; text-align: left;">
-                    ⚠️ Punto troppo interno. Onde stimate in base al vento. Marea calcolata matematicamente.
+                    ⚠️ Punto chiuso. Onde stimate in base al vento.
                 </div>`;
             }
 
-            if (currentSpotData.isAmp) {
-                htmlOutput = "<span style='color:var(--windy-red); font-weight:bold;'>AREA MARINA PROTETTA. Divieto assoluto di pesca in apnea.</span>";
-            } else if (selectedGuns.length === 0) {
+            if (selectedGuns.length === 0) {
                 htmlOutput = "Nessuna arma selezionata nell'inventario.";
             } else {
                 let duration = endH - startH;
@@ -333,17 +357,17 @@
                 if (duration <= 3) {
                     let t = getTactics((wave1 + wave2) / 2);
                     let gun = selectedGuns.find(g => g.techniques.includes(t.tech)) || selectedGuns[0];
-                    let isFallbackGun = !gun.techniques.includes(t.tech);
-                    let borderCol = isFallbackGun ? "var(--windy-red)" : "var(--windy-green)";
-                    let bgCol = isFallbackGun ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)";
+                    let isFb = !gun.techniques.includes(t.tech);
+                    let borderCol = isFb ? "var(--windy-red)" : "var(--windy-green)";
+                    let bgCol = isFb ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)";
 
                     htmlOutput += `
                         <div class="tactic-box">
                             <div style="margin-bottom:8px;"><b>Condizioni:</b> ${t.cond}.</div>
                             <div style="margin-bottom:12px; font-size:11px; color:var(--text-muted);"><b>Come agire:</b> ${techDetails[t.tech]}</div>
-                            <div style="padding: 8px; border: 1px ${isFallbackGun ? 'dashed' : 'solid'} ${borderCol}; border-radius: 4px; background: ${bgCol};">
-                                <b>${isFallbackGun ? 'Arma di Ripiego' : 'Arma Perfetta'}: ${gun.name}</b><br>
-                                <span style="font-size: 10px; color: ${borderCol};">${isFallbackGun ? 'Adattamento necessario' : 'Ottimizzata per: ' + t.tech.toUpperCase()}</span>
+                            <div style="padding: 8px; border: 1px ${isFb ? 'dashed' : 'solid'} ${borderCol}; border-radius: 4px; background: ${bgCol};">
+                                <b>${isFb ? 'Arma di Ripiego' : 'Arma Perfetta'}: ${gun.name}</b><br>
+                                <span style="font-size: 10px; color: ${borderCol};">${isFb ? 'Adattamento necessario' : 'Ottimizzata per: ' + t.tech.toUpperCase()}</span>
                             </div>
                         </div>
                     `;
@@ -389,7 +413,7 @@
             `;
         }
 
-        // Radar Onde
+        // Recupero Onde (Blindato)
         async function getValidMarineData(baseLat, baseLng, sDate) {
             const offsets = [
                 [0, 0], [0, -0.05], [0, 0.05], [-0.05, 0], [0.05, 0], 
@@ -410,33 +434,35 @@
             return null; 
         }
 
-        // Radar Marea Profonda (Deep Offshore - 40km) per forzare i dati nel Tirreno
-        async function getRealTideData(baseLat, baseLng, sDate) {
-            const tideOffsets = [
-                [0, 0], [0, -0.2], [0, 0.2], [-0.2, 0], [0.2, 0], 
-                [0, -0.4], [0, 0.4] 
-            ];
-            for (let off of tideOffsets) {
-                let testLat = baseLat + off[0];
-                let testLng = baseLng + off[1];
-                try {
-                    let res = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${testLat}&longitude=${testLng}&hourly=ocean_tide&timezone=auto&start_date=${sDate}&end_date=${sDate}`);
-                    if (!res.ok) continue; 
-                    let data = await res.json();
-                    if (data.hourly && data.hourly.ocean_tide) {
-                        if (data.hourly.ocean_tide.some(val => val !== null)) return data.hourly.ocean_tide;
-                    }
-                } catch(e) {}
+        // Tracking Estremi PRO (Stormglass)
+        async function getProTides(lat, lng, sDate, apiKey) {
+            try {
+                let dStart = new Date(sDate); dStart.setDate(dStart.getDate() - 1);
+                let dEnd = new Date(sDate); dEnd.setDate(dEnd.getDate() + 2);
+                let startIso = dStart.toISOString().split('T')[0];
+                let endIso = dEnd.toISOString().split('T')[0];
+                
+                let res = await fetch(`https://api.stormglass.io/v2/tide/extremes/point?lat=${lat}&lng=${lng}&start=${startIso}&end=${endIso}`, {
+                    headers: { 'Authorization': apiKey }
+                });
+                if (res.ok) {
+                    let json = await res.json();
+                    if(json.data) return json.data;
+                }
+            } catch(e) {
+                console.warn("Stormglass Error:", e);
             }
             return null;
         }
 
         async function fetchSpotData(lat, lng) {
             const dateObj = new Date(dateInput.value);
+            const sDate = dateInput.value;
             const moonData = getMoonData(dateObj); 
+            const apiKey = localStorage.getItem('stormglass_key');
 
             document.getElementById('forecast-container').style.display = 'none';
-            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-blue); font-size: 11px;'>📡 Analisi atmosferica e batimetrica in corso...</div>";
+            document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-blue); font-size: 11px;'>📡 Scansione parametri e maree in corso...</div>";
             
             try {
                 let placeName = "Coordinate Radar";
@@ -446,25 +472,19 @@
                     placeName = geoData.name || geoData.address.village || geoData.address.town || "Zona Costiera";
                 } catch(e) {}
 
-                const sDate = dateInput.value;
-                // Meteo forzato su modelli europei ad alta risoluzione (best_match)
-                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn&models=best_match`);
+                // Chiamate di Rete Separate (Decoupling)
+                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
                 const wData = await wRes.json();
                 
                 let mData = await getValidMarineData(lat, lng, sDate);
-                let tideData = await getRealTideData(lat, lng, sDate);
                 
-                let isFallback = false;
+                let tideExtremes = null;
+                if(apiKey) tideExtremes = await getProTides(lat, lng, sDate, apiKey);
 
+                let isFallback = false;
                 if (!mData) {
                     isFallback = true;
-                    mData = {
-                        hourly: {
-                            wave_height: new Array(24).fill(null),
-                            wave_direction: new Array(24).fill(null),
-                            wave_period: new Array(24).fill(null)
-                        }
-                    };
+                    mData = { hourly: { wave_height: new Array(24).fill(null), wave_direction: new Array(24).fill(null), wave_period: new Array(24).fill(null) } };
                 }
 
                 let srTime = "-", ssTime = "-";
@@ -473,14 +493,11 @@
 
                 currentSpotData = {
                     placeName: placeName, isFallback: isFallback,
-                    winds: wData.hourly.wind_speed_10m, 
-                    weather: wData.hourly.weather_code,
+                    sDateStr: sDate, 
+                    winds: wData.hourly.wind_speed_10m, weather: wData.hourly.weather_code,
                     sunriseTime: srTime, sunsetTime: ssTime,
-                    waves: mData.hourly.wave_height,
-                    waveDir: mData.hourly.wave_direction, 
-                    wavePeriod: mData.hourly.wave_period,
-                    tides: tideData,
-                    moonAge: moonData.age 
+                    waves: mData.hourly.wave_height, waveDir: mData.hourly.wave_direction, wavePeriod: mData.hourly.wave_period,
+                    tideExtremes: tideExtremes, moonAge: moonData.age 
                 };
 
                 if (marker) map.removeLayer(marker);
@@ -505,12 +522,16 @@
 
         function buildTimeline(data) {
             const container = document.getElementById('timeline');
+            let isProTide = data.tideExtremes !== null;
+
             let rowTime = '<div class="t-row"><div class="t-label">Ora</div>';
             let rowMeteo = '<div class="t-row"><div class="t-label">Cielo</div>';
             let rowWind = '<div class="t-row"><div class="t-label">Vento (kn)</div>';
             let rowWave = '<div class="t-row"><div class="t-label">Onda (m)</div>';
             let rowPeriod = '<div class="t-row"><div class="t-label">Period (s)</div>';
-            let rowTide = '<div class="t-row" style="border:none;"><div class="t-label">Stima Marea</div>';
+            let rowTide = `<div class="t-row" style="border:none;"><div class="t-label">${isProTide ? 'Marea (PRO)' : 'Marea (Luna)'}</div>`;
+
+            let dateParts = data.sDateStr.split('-');
 
             for (let i = 5; i <= 20; i++) {
                 let timeStr = i.toString().padStart(2, '0') + ':00';
@@ -521,17 +542,19 @@
                 let dirArrow = getDirectionArrow(data.waveDir[i]);
                 let period = (data.wavePeriod[i] !== null && data.wavePeriod[i] !== undefined) ? Math.round(data.wavePeriod[i]) + 's' : '-';
                 
-                // CALCOLO MAREA: Dati Reali > Matematica Fallback
+                // CALCOLO VETTORIALE MAREA:
                 let tideStr = "-";
-                if (data.tides && data.tides[i] !== null && data.tides[i] !== undefined) {
-                    let currentTide = data.tides[i];
-                    let prevTide = i > 0 && data.tides[i-1] !== null ? data.tides[i-1] : currentTide;
-                    if (currentTide > prevTide + 0.001) {
-                        tideStr = "<span style='color:var(--windy-blue); font-weight:bold;'>🌊 IN</span>";
-                    } else if (currentTide < prevTide - 0.001) {
-                        tideStr = "<span style='color:var(--windy-red); font-weight:bold;'>📉 OUT</span>";
-                    } else {
-                        tideStr = "<span style='color:var(--text-muted);'>〰️</span>";
+                if (isProTide) {
+                    let targetDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], i, 0, 0);
+                    let targetMs = targetDate.getTime();
+                    
+                    let nextExtreme = data.tideExtremes.find(ex => new Date(ex.time).getTime() > targetMs);
+                    if (nextExtreme) {
+                        if (nextExtreme.type === "high") {
+                            tideStr = "<span style='color:var(--windy-blue); font-weight:bold;'>🌊 IN</span>";
+                        } else {
+                            tideStr = "<span style='color:var(--windy-red); font-weight:bold;'>📉 OUT</span>";
+                        }
                     }
                 } else {
                     tideStr = getTideTrend(i, data.moonAge);
