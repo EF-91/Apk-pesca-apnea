@@ -75,6 +75,17 @@
 
         .leaflet-control-layers { background-color: var(--bg-panel) !important; color: var(--text-main) !important; border: 1px solid var(--border-line) !important; border-radius: 4px !important; }
         .leaflet-control-layers-list { font-size: 12px; }
+
+        /* Stili Database Pesci */
+        .fish-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        .fish-card { background-color: var(--bg-base); border: 1px solid var(--border-line); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; }
+        .fish-img-container { width: 100%; height: 160px; background-color: #1a1d24; display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--border-line); }
+        .fish-img-container img { width: 100%; height: 100%; object-fit: cover; }
+        .fish-img-placeholder { font-size: 50px; }
+        .fish-info { padding: 15px; font-size: 12px; line-height: 1.6; color: var(--text-muted); }
+        .fish-title { color: var(--text-main); font-size: 15px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; border-bottom: 1px solid var(--border-line); padding-bottom: 6px; }
+        .fish-data span { color: var(--windy-blue); font-weight: 600; }
+        .fish-data-row { margin-bottom: 4px; display: flex; flex-direction: column; }
     </style>
 </head>
 <body>
@@ -117,6 +128,14 @@
             <span class="update-indicator" id="update-timer">Sync attivo</span>
         </div>
         <div class="timeline-wrapper" id="timeline"></div>
+    </div>
+
+    <!-- NUOVO PANNELLO: Database Specie Mediterraneo -->
+    <div class="panel" id="fish-database-panel">
+        <div class="panel-header">Database Specie Mediterraneo</div>
+        <div class="panel-content">
+            <div class="fish-grid" id="fish-grid"></div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -167,6 +186,73 @@
         }
         renderGuns();
 
+        // --- SISTEMA DATABASE PESCI ---
+        // Per aggiungere una foto reale, inserisci l'URL tra le virgolette di imageUrl. Es: imageUrl: "https://mio-sito.it/spigola.jpg"
+        const fishDatabase = [
+            { 
+                name: "Spigola (Branzino)", depth: "0 - 15m", period: "Autunno / Inverno", 
+                habitat: "Risacca, foci dei fiumi, porti, fondali misti sabbia e posidonia.", 
+                size: "25 cm", tactic: "Agguato in schiuma, aspetto in pochissima acqua. Predatore molto sospettoso ma curioso.", 
+                imageUrl: "", placeholder: "🐟" 
+            },
+            { 
+                name: "Orata", depth: "1 - 30m", period: "Primavera / Autunno", 
+                habitat: "Distese di sabbia e fango vicino a scogliere, o prossimità di allevamenti di mitili.", 
+                size: "20 cm", tactic: "Aspetto nascosto sul fondo, agguato estremamente lento. Sensibile ai rumori metallici.", 
+                imageUrl: "", placeholder: "🐠" 
+            },
+            { 
+                name: "Sarago Maggiore", depth: "0 - 40m", period: "Tutto l'anno", 
+                habitat: "Spaccature profonde, franate, tane rocciose buie e comunicanti.", 
+                size: "15 cm", tactic: "Pesca in tana con torcia corta, agguato profondo scorrendo i lastroni rocciosi.", 
+                imageUrl: "", placeholder: "🐡" 
+            },
+            { 
+                name: "Dentice", depth: "15 - 50m+", period: "Estate / Inizio Autunno", 
+                habitat: "Secche al largo, cigliate profonde esposte alla corrente primaria, agglomerati rocciosi isolati.", 
+                size: "Non spec. (Etico > 1kg)", tactic: "Aspetto profondo con assoluto e prolungato immobilismo. Fucile lungo potente.", 
+                imageUrl: "", placeholder: "🦈" 
+            },
+            { 
+                name: "Cernia Bruna", depth: "10 - 50m+", period: "Piena Estate", 
+                habitat: "Grandi tane rocciose, cunicoli complessi e bui, relitti.", 
+                size: "45 cm", tactic: "Caduta mirata se fuori tana, altrimenti pesca in tana mirata alla testa per evitare l'arrocco.", 
+                imageUrl: "", placeholder: "🪨" 
+            },
+            { 
+                name: "Ricciola", depth: "0 - 50m+", period: "Tarda Estate / Autunno", 
+                habitat: "Acque libere (pelagico), promontori esposti a forti correnti o pareti verticali.", 
+                size: "60 cm (Consigliato > 2kg)", tactic: "Aspetto nel blu, caduta intercettando i branchi in caccia vicino alla superficie.", 
+                imageUrl: "", placeholder: "🌊" 
+            }
+        ];
+
+        function renderFishDatabase() {
+            const container = document.getElementById('fish-grid');
+            container.innerHTML = fishDatabase.map(fish => {
+                let mediaElement = fish.imageUrl !== "" 
+                    ? `<img src="${fish.imageUrl}" alt="${fish.name}">` 
+                    : `<div class="fish-img-placeholder">${fish.placeholder}</div>`;
+
+                return `
+                    <div class="fish-card">
+                        <div class="fish-img-container">${mediaElement}</div>
+                        <div class="fish-info">
+                            <div class="fish-title">${fish.name}</div>
+                            <div class="fish-data-row">Quota Operativa: <span>${fish.depth}</span></div>
+                            <div class="fish-data-row">Stagione Ottimale: <span>${fish.period}</span></div>
+                            <div class="fish-data-row">Habitat: <span style="color:var(--text-main); font-weight:normal;">${fish.habitat}</span></div>
+                            <div class="fish-data-row">Approccio: <span style="color:var(--text-main); font-weight:normal;">${fish.tactic}</span></div>
+                            <div class="fish-data-row" style="margin-top:6px;">Taglia Minima Legale: <span style="color:var(--windy-red);">${fish.size}</span></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        // Inizializza il database all'avvio
+        renderFishDatabase();
+
+        // --- GESTIONE RADAR E PREVISIONI ---
         startSelect.addEventListener('change', updateAdvice);
         endSelect.addEventListener('change', updateAdvice);
         document.getElementById('depth-selector').addEventListener('change', updateAdvice);
@@ -201,13 +287,6 @@
             else if (age < 17) phase = "Piena 🌕";
             else phase = "Calante 🌗";
             return { age: age, phase: phase };
-        }
-
-        function getTideTrend(hour, moonAge) {
-            let lunarOffset = (moonAge * 24 * 0.84) % 12; 
-            let adjustedHour = (hour - lunarOffset + 24) % 12;
-            if (adjustedHour < 6) return "<span style='color:var(--windy-blue); font-weight:bold;'>🌊 IN</span>";
-            return "<span style='color:var(--windy-red); font-weight:bold;'>📉 OUT</span>";
         }
 
         function getTargetSpeciesArray(depth, month) {
@@ -382,8 +461,7 @@
 
         async function getValidMarineData(baseLat, baseLng, sDate) {
             const offsets = [
-                [0, 0], [0, -0.05], [0, 0.05], [-0.05, 0], [0.05, 0], 
-                [-0.05, -0.05], [0.05, -0.05], [0, -0.1], [0, 0.1], [-0.1, -0.1]
+                [0, 0], [0, -0.05], [0, 0.05], [-0.05, 0], [0.05, 0]
             ];
             for (let off of offsets) {
                 let testLat = baseLat + off[0];
@@ -538,7 +616,10 @@
                         }
                     }
                 } else {
-                    tideStr = getTideTrend(i, data.moonAge);
+                    let lunarOffset = (data.moonAge * 24 * 0.84) % 12; 
+                    let adjustedHour = (i - lunarOffset + 24) % 12;
+                    if (adjustedHour < 6) tideStr = "<span style='color:var(--windy-blue); font-weight:bold;'>🌊 IN</span>";
+                    else tideStr = "<span style='color:var(--windy-red); font-weight:bold;'>📉 OUT</span>";
                 }
 
                 rowTime += `<div class="t-cell" style="color:var(--text-main); font-weight:600;">${timeStr}</div>`;
