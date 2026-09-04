@@ -87,20 +87,6 @@
         <div id="map"></div>
     </div>
 
-    <!-- Modulo API KEY (Decoupling) -->
-    <div class="panel" style="border-color: var(--windy-blue);">
-        <div class="panel-header" style="color:var(--text-main); background-color: rgba(14, 165, 233, 0.1);">Sincronizzazione Maree PRO</div>
-        <div class="panel-content">
-            <div style="font-size:11px; margin-bottom:8px; color:var(--text-muted);">
-                Ottieni la precisione idrodinamica inserendo un'API Key gratuita creata su <a href="https://stormglass.io/" target="_blank" style="color:var(--windy-blue);">Stormglass.io</a>.
-            </div>
-            <div style="display:flex; gap:8px;">
-                <input type="password" id="api-key-input" placeholder="Incolla la tua chiave Stormglass..." style="flex:1; font-size:11px;">
-                <button id="btn-save-key" style="width:auto; padding:8px 15px; background-color:var(--windy-green);">Salva</button>
-            </div>
-        </div>
-    </div>
-
     <div class="panel">
         <div class="panel-header">Parametri di Missione</div>
         <div class="panel-content">
@@ -127,7 +113,7 @@
 
     <div class="panel" id="forecast-container" style="display: none; padding: 0;">
         <div class="panel-header">
-            <span>Dati Oceanografici</span>
+            <span>Dati Oceanografici Alta Precisione</span>
             <span class="update-indicator" id="update-timer">Sync attivo</span>
         </div>
         <div class="timeline-wrapper" id="timeline"></div>
@@ -135,23 +121,8 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Gestione API Key nel Local Storage
-        const keyInput = document.getElementById('api-key-input');
-        const savedKey = localStorage.getItem('stormglass_key');
-        if (savedKey) keyInput.value = savedKey;
+        const STORMGLASS_API_KEY = "e130086e-a827-11f1-9cea-0242ac120004-e1300904-a827-11f1-9cea-0242ac120004";
 
-        document.getElementById('btn-save-key').addEventListener('click', () => {
-            const k = keyInput.value.trim();
-            if(k) {
-                localStorage.setItem('stormglass_key', k);
-                alert("Chiave Stormglass salvata. Le maree saranno ora elaborate dai server idrodinamici reali.");
-            } else {
-                localStorage.removeItem('stormglass_key');
-                alert("Chiave rimossa. L'app tornerà al modello matematico lunare.");
-            }
-        });
-
-        // Generazione Orari
         const startSelect = document.getElementById('time-start');
         const endSelect = document.getElementById('time-end');
         for(let i = 5; i <= 20; i++) {
@@ -170,7 +141,6 @@
         L.control.layers({ "Satellitare": satelliteLayer }, { "Isobate (Nautiche)": openSeaMapLayer }, { position: 'topleft' }).addTo(map);
 
         let marker;
-        let updateInterval; 
         const dateInput = document.getElementById('target-date');
         const today = new Date();
         dateInput.value = today.toISOString().split('T')[0];
@@ -200,9 +170,7 @@
         startSelect.addEventListener('change', updateAdvice);
         endSelect.addEventListener('change', updateAdvice);
         document.getElementById('depth-selector').addEventListener('change', updateAdvice);
-        dateInput.addEventListener('change', triggerFetch);
-
-        function triggerFetch() { if (marker) fetchSpotData(marker.getLatLng().lat, marker.getLatLng().lng); }
+        dateInput.addEventListener('change', () => { if(marker) fetchSpotData(marker.getLatLng().lat, marker.getLatLng().lng); });
 
         function parseWeather(code) {
             if(code <= 1) return "☀️"; if(code <= 3) return "⛅";
@@ -235,7 +203,6 @@
             return { age: age, phase: phase };
         }
 
-        // Funzione di Fallback Lunare
         function getTideTrend(hour, moonAge) {
             let lunarOffset = (moonAge * 24 * 0.84) % 12; 
             let adjustedHour = (hour - lunarOffset + 24) % 12;
@@ -283,7 +250,7 @@
             if (currentSpotData.isFallback) {
                 warningBanner = `
                 <div style="background-color: rgba(234, 179, 8, 0.15); border: 1px solid var(--windy-warn); color: var(--windy-warn); padding: 8px; border-radius: 4px; font-size: 11px; margin-bottom: 10px; text-align: left;">
-                    ⚠️ Punto chiuso. Onde stimate in base al vento.
+                    ⚠️ Punto chiuso. Onde stimate in base al vento locale.
                 </div>`;
             }
 
@@ -413,7 +380,6 @@
             `;
         }
 
-        // Recupero Onde (Blindato)
         async function getValidMarineData(baseLat, baseLng, sDate) {
             const offsets = [
                 [0, 0], [0, -0.05], [0, 0.05], [-0.05, 0], [0.05, 0], 
@@ -434,8 +400,21 @@
             return null; 
         }
 
-        // Tracking Estremi PRO (Stormglass)
-        async function getProTides(lat, lng, sDate, apiKey) {
+        async function getProTides(lat, lng, sDate) {
+            let cacheKey = `tide_${Math.round(lat)}_${Math.round(lng)}_${sDate}`;
+            let cachedDataStr = localStorage.getItem(cacheKey);
+            
+            if (cachedDataStr) {
+                let cachedData = JSON.parse(cachedDataStr);
+                let now = new Date().getTime();
+                let savedTime = cachedData.timestamp || 0;
+                let timeDiffMinutes = (now - savedTime) / (1000 * 60);
+
+                if (timeDiffMinutes < 144) {
+                    return cachedData.data;
+                }
+            }
+
             try {
                 let dStart = new Date(sDate); dStart.setDate(dStart.getDate() - 1);
                 let dEnd = new Date(sDate); dEnd.setDate(dEnd.getDate() + 2);
@@ -443,15 +422,21 @@
                 let endIso = dEnd.toISOString().split('T')[0];
                 
                 let res = await fetch(`https://api.stormglass.io/v2/tide/extremes/point?lat=${lat}&lng=${lng}&start=${startIso}&end=${endIso}`, {
-                    headers: { 'Authorization': apiKey }
+                    headers: { 'Authorization': STORMGLASS_API_KEY }
                 });
+                
                 if (res.ok) {
                     let json = await res.json();
-                    if(json.data) return json.data;
+                    if(json.data) {
+                        let cacheObject = {
+                            timestamp: new Date().getTime(),
+                            data: json.data
+                        };
+                        localStorage.setItem(cacheKey, JSON.stringify(cacheObject));
+                        return json.data;
+                    }
                 }
-            } catch(e) {
-                console.warn("Stormglass Error:", e);
-            }
+            } catch(e) {}
             return null;
         }
 
@@ -459,7 +444,6 @@
             const dateObj = new Date(dateInput.value);
             const sDate = dateInput.value;
             const moonData = getMoonData(dateObj); 
-            const apiKey = localStorage.getItem('stormglass_key');
 
             document.getElementById('forecast-container').style.display = 'none';
             document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-blue); font-size: 11px;'>📡 Scansione parametri e maree in corso...</div>";
@@ -472,14 +456,12 @@
                     placeName = geoData.name || geoData.address.village || geoData.address.town || "Zona Costiera";
                 } catch(e) {}
 
-                // Chiamate di Rete Separate (Decoupling)
-                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn`);
+                const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&daily=sunrise,sunset&timezone=auto&start_date=${sDate}&end_date=${sDate}&wind_speed_unit=kn&models=best_match`);
                 const wData = await wRes.json();
                 
                 let mData = await getValidMarineData(lat, lng, sDate);
                 
-                let tideExtremes = null;
-                if(apiKey) tideExtremes = await getProTides(lat, lng, sDate, apiKey);
+                let tideExtremes = await getProTides(lat, lng, sDate);
 
                 let isFallback = false;
                 if (!mData) {
@@ -542,7 +524,6 @@
                 let dirArrow = getDirectionArrow(data.waveDir[i]);
                 let period = (data.wavePeriod[i] !== null && data.wavePeriod[i] !== undefined) ? Math.round(data.wavePeriod[i]) + 's' : '-';
                 
-                // CALCOLO VETTORIALE MAREA:
                 let tideStr = "-";
                 if (isProTide) {
                     let targetDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], i, 0, 0);
