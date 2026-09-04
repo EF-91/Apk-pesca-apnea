@@ -79,9 +79,8 @@
         /* Stili Database Pesci */
         .fish-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
         .fish-card { background-color: var(--bg-base); border: 1px solid var(--border-line); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; }
-        .fish-img-container { width: 100%; height: 160px; background-color: #1a1d24; display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--border-line); position: relative; }
-        .fish-img-container img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .fish-img-placeholder { font-size: 50px; position: absolute; }
+        .fish-img-container { width: 100%; height: 160px; background-color: #1a1d24; display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--border-line); padding: 10px; }
+        .fish-img-container img { width: 90%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.5)); }
         .fish-info { padding: 15px; font-size: 12px; line-height: 1.6; color: var(--text-muted); }
         .fish-title { color: var(--text-main); font-size: 15px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; border-bottom: 1px solid var(--border-line); padding-bottom: 6px; }
         .fish-data span { color: var(--windy-blue); font-weight: 600; }
@@ -130,6 +129,7 @@
         <div class="timeline-wrapper" id="timeline"></div>
     </div>
 
+    <!-- PANNELLO: Database Specie Mediterraneo -->
     <div class="panel" id="fish-database-panel">
         <div class="panel-header">Database Specie Mediterraneo</div>
         <div class="panel-content">
@@ -185,79 +185,154 @@
         }
         renderGuns();
 
-        // --- SISTEMA DATABASE PESCI (AGGIORNATO CON PROXY IMMAGINI) ---
+        // --- MOTORE DI GENERAZIONE VETTORIALE (Nessun link esterno) ---
+        function getFishSVG(type) {
+            let rx=80, ry=25, cTop='#94a3b8', cBot='#e2e8f0', fCol='#64748b', tail='30,50 5,20 15,50 5,80', dorsal='60,25 100,10 130,25', eyeX=160, eyeY=40, mouthX=180, mouthY=45, extra='';
+            
+            switch(type) {
+                case 'spigola': 
+                    rx=85; ry=22; mouthX=185; 
+                    break;
+                case 'orata': 
+                    rx=70; ry=35; eyeX=150; mouthX=170; cTop='#cbd5e1'; cBot='#f8fafc'; 
+                    extra="<ellipse cx='160' cy='42' rx='6' ry='12' fill='#fbbf24' opacity='0.8'/>"; // Macchia oro
+                    break;
+                case 'sarago': 
+                    rx=65; ry=35; eyeX=145; mouthX=165; cTop='#cbd5e1'; cBot='#f1f5f9';
+                    extra="<path d='M80 15 L80 85 M100 15 L100 85 M120 18 L120 82' stroke='#1e293b' stroke-width='6' opacity='0.7'/>"; // Strisce verticali
+                    break;
+                case 'dentice': 
+                    rx=75; ry=30; eyeX=155; mouthX=175; cTop='#fca5a5'; cBot='#fee2e2'; fCol='#f87171'; // Tonalità rosa/rossa
+                    extra="<path d='M175 45 L172 48' stroke='white' stroke-width='2'/>"; // Denti visibili
+                    break;
+                case 'cernia': 
+                    rx=70; ry=35; eyeX=150; mouthX=170; mouthY=48; cTop='#78350f'; cBot='#b45309'; fCol='#451a03'; // Marrone scuro
+                    tail='30,50 10,25 5,50 10,75'; // Coda arrotondata
+                    extra="<circle cx='90' cy='40' r='3' fill='#fcd34d' opacity='0.6'/><circle cx='110' cy='60' r='4' fill='#fcd34d' opacity='0.6'/><circle cx='60' cy='50' r='2' fill='#fcd34d' opacity='0.6'/>"; // Macchioline
+                    break;
+                case 'ricciola': 
+                    rx=90; ry=25; eyeX=170; mouthX=190; cTop='#94a3b8'; cBot='#f8fafc'; fCol='#cbd5e1';
+                    tail='30,50 0,10 15,50 0,90'; // Coda molto biforcuta
+                    extra="<path d='M40 50 Q100 45 170 45' stroke='#fde047' stroke-width='5' opacity='0.9' fill='none'/>"; // Linea gialla laterale
+                    break;
+                case 'corvina': 
+                    rx=70; ry=30; eyeX=150; mouthX=170; cTop='#451a03'; cBot='#78350f'; fCol='#fbbf24'; // Dorso curvo, bronzo, pinne gialle
+                    dorsal='50,25 90,5 130,25'; 
+                    break;
+                case 'dorata': 
+                    rx=70; ry=32; eyeX=150; mouthX=170; cTop='#b45309'; cBot='#f59e0b'; fCol='#78350f'; tail='30,50 10,25 5,50 10,75';
+                    extra="<path d='M50 30 Q100 30 150 40 M45 50 Q100 50 140 60' stroke='#78350f' stroke-width='4' opacity='0.5' fill='none'/>";
+                    break;
+                case 'dotto': 
+                    rx=75; ry=28; eyeX=155; mouthX=175; cTop='#3f3f46'; cBot='#71717a'; fCol='#27272a'; tail='30,50 10,25 5,50 10,75'; // Grigio scuro
+                    break;
+                case 'pappagallo': 
+                    rx=65; ry=30; eyeX=145; mouthX=165; cTop='#ef4444'; cBot='#fde047'; fCol='#3b82f6'; // Rosso, giallo, pinne blu
+                    extra="<path d='M165 45 Q160 50 165 55 Z' fill='#f8fafc' stroke='#1e293b'/>"; // Becco evidente
+                    break;
+                case 'leccia': 
+                    rx=75; ry=35; eyeX=155; mouthX=175; cTop='#cbd5e1'; cBot='#ffffff'; fCol='#94a3b8';
+                    tail='30,50 -5,5 15,50 -5,95'; // Coda a rondine estrema
+                    dorsal='90,15 110,5 120,15';
+                    break;
+                case 'cefalo': 
+                    rx=85; ry=20; eyeX=165; mouthX=185; cTop='#64748b'; cBot='#cbd5e1'; fCol='#94a3b8'; // Corpo dritto a siluro
+                    break;
+            }
+
+            let svgStr = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 100'>
+                <defs>
+                    <linearGradient id='grad${type}' x1='0%' y1='0%' x2='0%' y2='100%'>
+                        <stop offset='0%' style='stop-color:${cTop};stop-opacity:1' />
+                        <stop offset='100%' style='stop-color:${cBot};stop-opacity:1' />
+                    </linearGradient>
+                </defs>
+                <polygon points='${tail}' fill='url(#grad${type})' stroke='#1e293b' stroke-width='2'/>
+                <polygon points='${dorsal}' fill='${fCol}' stroke='#1e293b' stroke-width='2'/>
+                <polygon points='60,75 80,90 90,75' fill='${fCol}' stroke='#1e293b' stroke-width='2'/>
+                <ellipse cx='100' cy='50' rx='${rx}' ry='${ry}' fill='url(#grad${type})' stroke='#1e293b' stroke-width='2'/>
+                ${extra}
+                <circle cx='${eyeX}' cy='${eyeY}' r='4' fill='#f8fafc' stroke='#1e293b' stroke-width='1'/>
+                <circle cx='${eyeX+1}' cy='${eyeY}' r='1.5' fill='#0f172a'/>
+                <path d='M${mouthX} ${mouthY} Q${mouthX-5} ${mouthY+3} ${mouthX} ${mouthY+8}' stroke='#1e293b' stroke-width='2' fill='none'/>
+                <path d='M125 55 Q110 65 115 50 Z' fill='${fCol}' stroke='#1e293b' stroke-width='1'/>
+            </svg>`;
+            
+            return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
+        }
+
         const fishDatabase = [
             { 
                 name: "Spigola (Branzino)", depth: "0 - 15m", period: "Autunno / Inverno", 
                 habitat: "Risacca, foci dei fiumi, porti, fondali misti sabbia e posidonia.", 
-                size: "25 cm", tactic: "Agguato in schiuma, aspetto in pochissima acqua. Predatore molto sospettoso ma curioso.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/6/64/Dicentrarchus_labrax.jpg", placeholder: "🐟" 
+                size: "25 cm", tactic: "Agguato in schiuma, aspetto in pochissima acqua.", 
+                imageUrl: getFishSVG('spigola')
             },
             { 
                 name: "Orata", depth: "1 - 30m", period: "Primavera / Autunno", 
-                habitat: "Distese di sabbia e fango vicino a scogliere, o prossimità di allevamenti di mitili.", 
-                size: "20 cm", tactic: "Aspetto nascosto sul fondo, agguato estremamente lento. Sensibile ai rumori metallici.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/1/10/Sparus_aurata_01.jpg", placeholder: "🐠" 
+                habitat: "Distese di sabbia e fango vicino a scogliere, allevamenti.", 
+                size: "20 cm", tactic: "Aspetto nascosto sul fondo, agguato lento.", 
+                imageUrl: getFishSVG('orata')
             },
             { 
                 name: "Sarago Maggiore", depth: "0 - 40m", period: "Tutto l'anno", 
-                habitat: "Spaccature profonde, franate, tane rocciose buie e comunicanti.", 
-                size: "15 cm", tactic: "Pesca in tana con torcia corta, agguato profondo scorrendo i lastroni rocciosi.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/5/52/Diplodus_sargus_sargus.jpg", placeholder: "🐡" 
+                habitat: "Spaccature profonde, franate, tane rocciose.", 
+                size: "15 cm", tactic: "Pesca in tana con torcia corta, agguato profondo.", 
+                imageUrl: getFishSVG('sarago')
             },
             { 
                 name: "Dentice", depth: "15 - 50m+", period: "Estate / Inizio Autunno", 
-                habitat: "Secche al largo, cigliate profonde esposte alla corrente primaria, agglomerati rocciosi isolati.", 
-                size: "Non spec. (Etico > 1kg)", tactic: "Aspetto profondo con assoluto e prolungato immobilismo. Fucile lungo potente.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/5/5e/Dentex_dentex.jpg", placeholder: "🦈" 
+                habitat: "Secche al largo, cigliate esposte alla corrente primaria.", 
+                size: "Non spec. (Etico > 1kg)", tactic: "Aspetto profondo con prolungato immobilismo.", 
+                imageUrl: getFishSVG('dentice')
             },
             { 
                 name: "Cernia Bruna", depth: "10 - 50m+", period: "Piena Estate", 
                 habitat: "Grandi tane rocciose, cunicoli complessi e bui, relitti.", 
-                size: "45 cm", tactic: "Caduta mirata se fuori tana, altrimenti pesca in tana mirata alla testa per evitare l'arrocco.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/a/ad/Epinephelus_marginatus_%28Cernia_bruna_-_Dusky_grouper%29_-_Grotte_di_Lavezzi.jpg", placeholder: "🪨" 
+                size: "45 cm", tactic: "Pesca in tana mirata alla testa o caduta mirata.", 
+                imageUrl: getFishSVG('cernia')
             },
             { 
                 name: "Ricciola", depth: "0 - 50m+", period: "Tarda Estate / Autunno", 
-                habitat: "Acque libere (pelagico), promontori esposti a forti correnti o pareti verticali.", 
-                size: "60 cm (Consigliato > 2kg)", tactic: "Aspetto nel blu, caduta intercettando i branchi in caccia vicino alla superficie.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/e/e9/Seriola_dumerilii.jpg", placeholder: "🌊" 
+                habitat: "Acque libere (pelagico), promontori esposti a correnti.", 
+                size: "60 cm (Consigliato > 2kg)", tactic: "Aspetto nel blu, caduta intercettando branchi in caccia.", 
+                imageUrl: getFishSVG('ricciola')
             },
             { 
                 name: "Corvina", depth: "10 - 40m", period: "Primavera / Estate", 
-                habitat: "Grotte ampie, praterie di posidonia vicino a rocce, relitti.", 
-                size: "30 cm", tactic: "Pesca in tana o agguato profondo. Spesso stazionano immobili all'ingresso delle cavità in piccoli branchi.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/1/12/Sciaena_umbra_1.jpg", placeholder: "🐟" 
+                habitat: "Grotte ampie, praterie di posidonia vicino a rocce.", 
+                size: "30 cm", tactic: "Tana o agguato. Stazionano immobili all'ingresso di cavità.", 
+                imageUrl: getFishSVG('corvina')
             },
             { 
                 name: "Cernia Dorata (Dotto falso)", depth: "10 - 50m", period: "Estate / Autunno", 
-                habitat: "Scogliere isolate, franate di massi su fondale sabbioso.", 
-                size: "45 cm", tactic: "A differenza della bruna, si stacca spesso dal fondo. Ideale la caduta o l'agguato profondo.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/8/8d/Epinephelus_costae.jpg", placeholder: "🪨" 
+                habitat: "Scogliere isolate, franate di massi su sabbia.", 
+                size: "45 cm", tactic: "Si stacca dal fondo. Ideale caduta o agguato profondo.", 
+                imageUrl: getFishSVG('dorata')
             },
             { 
                 name: "Dotto", depth: "15 - 50m+", period: "Estate / Inizio Autunno", 
-                habitat: "Cadute nel blu, grandi scogli isolati. Nuota staccato dal fondo.", 
-                size: "45 cm", tactic: "Molto diffidente e scattante, richiede aspetti lunghi e ben occultati o cadute precisissime.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/8/87/Mycteroperca_rubra.jpg", placeholder: "🦈" 
+                habitat: "Cadute nel blu, grandi scogli isolati.", 
+                size: "45 cm", tactic: "Diffidente, richiede aspetti lunghi e ben occultati.", 
+                imageUrl: getFishSVG('dotto')
             },
             { 
                 name: "Pesce Pappagallo", depth: "1 - 30m", period: "Estate", 
-                habitat: "Fondali rocciosi superficiali e zone ricche di alghe di cui si nutre.", 
-                size: "Nessuna spec. (> 30cm)", tactic: "Agguato tra gli scogli. Specie in forte espansione, si muove lentamente in poca acqua.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/1/19/Sparisoma_cretense_%28Mediterranean_parrotfish%29.jpg", placeholder: "🐠" 
+                habitat: "Fondali rocciosi superficiali e zone ricche di alghe.", 
+                size: "Nessuna spec. (> 30cm)", tactic: "Agguato tra gli scogli in poca acqua.", 
+                imageUrl: getFishSVG('pappagallo')
             },
             { 
                 name: "Leccia", depth: "0 - 20m", period: "Primavera / Fine Estate", 
-                habitat: "Foci, porti, coste sabbiose e scogliere basse alla ricerca di branchi di cefali.", 
-                size: "60 cm (Consigliato > 3kg)", tactic: "Aspetto dinamico o richiami sonori in schiuma. Richiede un tiro potente e un mulinello capiente.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/d/d7/Lichia_amia1.jpg", placeholder: "🌊" 
+                habitat: "Foci, coste sabbiose e scogliere basse alla ricerca di branchi.", 
+                size: "60 cm (Consigliato > 3kg)", tactic: "Aspetto dinamico. Richiede un tiro potente.", 
+                imageUrl: getFishSVG('leccia')
             },
             { 
-                name: "Cefalo (Muggine)", depth: "0 - 10m", period: "Tutto l'anno (Passo autunnale)", 
+                name: "Cefalo (Muggine)", depth: "0 - 10m", period: "Tutto l'anno", 
                 habitat: "Acque torbide, porti, foci, zona di forte risacca.", 
-                size: "20 cm", tactic: "Agguato in pochissima acqua o aspetto breve nella schiuma. Ottimo per testare i riflessi.", 
-                imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/c/cd/Mugil_cephalus.jpg", placeholder: "🐟" 
+                size: "20 cm", tactic: "Agguato in pochissima acqua o aspetto breve nella schiuma.", 
+                imageUrl: getFishSVG('cefalo')
             }
         ];
 
@@ -267,8 +342,7 @@
                 return `
                     <div class="fish-card">
                         <div class="fish-img-container">
-                            <div class="fish-img-placeholder">${fish.placeholder}</div>
-                            <img src="${fish.imageUrl}" alt="${fish.name}" onerror="this.style.display='none';">
+                            <img src="${fish.imageUrl}" alt="${fish.name}">
                         </div>
                         <div class="fish-info">
                             <div class="fish-title">${fish.name}</div>
