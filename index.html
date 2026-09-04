@@ -89,7 +89,6 @@
 </head>
 <body>
 
-    <!-- Pulsantiera Aggiornata con Salvataggio Spot -->
     <div class="panel" style="margin-bottom: 8px;">
         <div class="input-grid" style="margin-bottom: 0;">
             <button id="btn-gps">📍 GPS</button>
@@ -99,6 +98,14 @@
     
     <div class="panel" style="padding:0; border: none;">
         <div id="map"></div>
+    </div>
+
+    <!-- PANNELLO: I Miei Spot Salvati (Filtro Dinamico a 10km) -->
+    <div class="panel" id="saved-spots-panel">
+        <div class="panel-header" style="color:var(--windy-warn); background-color: rgba(234, 179, 8, 0.1);">I Miei Spot Salvati</div>
+        <div class="panel-content" id="saved-spots-list" style="max-height: 250px; overflow-y: auto; padding: 10px;">
+            <!-- La lista viene generata da JavaScript -->
+        </div>
     </div>
 
     <div class="panel">
@@ -162,38 +169,116 @@
         L.control.layers({ "Satellitare": satelliteLayer }, { "Isobate (Nautiche)": openSeaMapLayer }, { position: 'topleft' }).addTo(map);
 
         let marker;
+        let savedMarkersLayer = L.layerGroup().addTo(map);
+        let currentSpotData = null; 
+        
         const dateInput = document.getElementById('target-date');
         const today = new Date();
         dateInput.value = today.toISOString().split('T')[0];
         dateInput.min = dateInput.value;
 
-        // --- GESTIONE SALVATAGGIO SPOT ---
+        // --- SISTEMA DI FILTRAGGIO DINAMICO (10 KM) ---
         function loadSavedSpots() {
+            savedMarkersLayer.clearLayers();
             let spots = JSON.parse(localStorage.getItem('spot_personali') || "[]");
-            spots.forEach(spot => {
+            let listHtml = "";
+            let currentLatLng = marker ? marker.getLatLng() : null;
+
+            spots.forEach((spot, index) => {
+                // Calcola la distanza dal punto selezionato. Se non c'è punto, mostra tutti.
+                if (currentLatLng) {
+                    let spotLatLng = L.latLng(spot.lat, spot.lng);
+                    let distanceMeters = currentLatLng.distanceTo(spotLatLng);
+                    if (distanceMeters > 10000) return; // Esclude i punti oltre i 10km
+                }
+
+                // Generazione visiva per i punti che superano il filtro
                 let sm = L.circleMarker([spot.lat, spot.lng], {
-                    color: '#eab308', fillColor: '#eab308', fillOpacity: 0.6, radius: 8
-                }).addTo(map);
-                sm.bindPopup(`<b style="color:var(--windy-warn);">${spot.title}</b><br><span style="font-size:11px;">${spot.desc}</span>`);
+                    color: '#eab308', fillColor: '#eab308', fillOpacity: 0.8, radius: 12, weight: 2
+                }).addTo(savedMarkersLayer);
+                
+                let locationHtml = spot.location ? `<div style="font-size:10px; color:var(--text-muted); margin-bottom:6px;">📍 ${spot.location}</div>` : "";
+
+                let popupTesto = `<b style="color:var(--windy-warn);">Spot #${index + 1}</b><br>
+                                  ${locationHtml}
+                                  <span style="font-size:11px;">🐟 Pesce: ${spot.pesce}<br>🎯 Tecnica: ${spot.tecnica}<br>🌊 Quota: ${spot.quota}</span>`;
+                sm.bindPopup(popupTesto);
+
+                listHtml += `
+                    <div style="background-color: var(--bg-base); padding: 10px; margin-bottom: 8px; border: 1px solid var(--border-line); border-radius: 4px; display:flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <div style="color:var(--windy-warn); font-weight:bold; font-size:12px; margin-bottom:2px;">Spot #${index + 1}</div>
+                            ${locationHtml}
+                            <div style="font-size:11px; color:var(--text-muted); line-height:1.4;">
+                                <span style="color:var(--text-main);">🐟 ${spot.pesce}</span><br>
+                                🎯 ${spot.tecnica} | 🌊 ${spot.quota}
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="selezionaSpotSalvato(${spot.lat}, ${spot.lng})" style="padding:8px 12px; font-size:10px; background-color:var(--windy-blue); width:auto;">PUNTA</button>
+                            <button onclick="eliminaSpotSalvato(${index})" style="padding:8px 12px; font-size:10px; background-color:var(--windy-red); width:auto;">X</button>
+                        </div>
+                    </div>
+                `;
             });
+
+            const containerList = document.getElementById('saved-spots-list');
+            if (spots.length === 0) {
+                containerList.innerHTML = "<div style='font-size:11px; color:var(--text-muted); text-align:center;'>Nessuno spot salvato nel database.</div>";
+            } else if (listHtml === "") {
+                containerList.innerHTML = "<div style='font-size:11px; color:var(--text-muted); text-align:center;'>Nessuno spot salvato in un raggio di 10 km da questo punto.</div>";
+            } else {
+                containerList.innerHTML = listHtml;
+            }
         }
         
+        window.selezionaSpotSalvato = function(lat, lng) {
+            map.setView([lat, lng], 15);
+            if (marker) map.removeLayer(marker); 
+            marker = L.marker([lat, lng]).addTo(map);
+            fetchSpotData(lat, lng);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        window.eliminaSpotSalvato = function(index) {
+            let spots = JSON.parse(localStorage.getItem('spot_personali') || "[]");
+            spots.splice(index, 1);
+            localStorage.setItem('spot_personali', JSON.stringify(spots));
+            loadSavedSpots();
+        }
+
+        // --- SALVATAGGIO CON GEOTAGGING ---
         document.getElementById('btn-save-spot').addEventListener('click', () => {
-            if (!marker) {
-                alert("Tocca prima la mappa per selezionare le coordinate da salvare.");
+            if (!marker || !currentSpotData) {
+                alert("Tocca la mappa e attendi il calcolo meteo prima di salvare lo spot.");
                 return;
             }
             let coords = marker.getLatLng();
-            let titolo = prompt("Inserisci il nome dello Spot (es. Tana Corvina):");
-            if (!titolo) return; 
-            let descrizione = prompt("Inserisci una nota tecnica per questo punto:");
+            let locationName = currentSpotData.placeName || "Zona Costiera";
             
-            let nuovoSpot = { lat: coords.lat, lng: coords.lng, title: titolo, desc: descrizione || "Nessuna nota." };
+            let pesceTarget = prompt("Specie bersaglio (es. Dentice, Sarago):");
+            if (pesceTarget === null) return; 
+            
+            let tecnicaSpot = prompt("Tecnica principale (es. Aspetto, Tana):");
+            if (tecnicaSpot === null) return;
+            
+            let quotaSpot = prompt("Quota operativa (es. 15-20m):");
+            if (quotaSpot === null) return;
+            
+            let nuovoSpot = { 
+                lat: coords.lat, 
+                lng: coords.lng, 
+                location: locationName, 
+                pesce: pesceTarget || "-", 
+                tecnica: tecnicaSpot || "-", 
+                quota: quotaSpot || "-" 
+            };
+            
             let spots = JSON.parse(localStorage.getItem('spot_personali') || "[]");
             spots.push(nuovoSpot);
             localStorage.setItem('spot_personali', JSON.stringify(spots));
             
-            alert("Spot salvato con successo!");
+            alert("Spot salvato correttamente e associato a: " + locationName);
             loadSavedSpots(); 
         });
 
@@ -207,8 +292,6 @@
             { id: "carb115", name: "C4 Mr. Carbon 115", techniques: ["aspetto", "blu"], checked: false }
         ];
 
-        let currentSpotData = null; 
-
         function renderGuns() {
             const container = document.getElementById('gun-inventory');
             container.innerHTML = allGuns.map(gun => `
@@ -218,41 +301,21 @@
         }
         
         renderGuns();
-        loadSavedSpots(); // Carica i marker dorati all'avvio
-
-        function getFishSVG(type) {
-            let rx=80, ry=25, cTop='#94a3b8', cBot='#e2e8f0', fCol='#64748b', tail='30,50 5,20 15,50 5,80', dorsal='60,25 100,10 130,25', eyeX=160, eyeY=40, mouthX=180, mouthY=45, extra='';
-            switch(type) {
-                case 'spigola': rx=85; ry=22; mouthX=185; break;
-                case 'orata': rx=70; ry=35; eyeX=150; mouthX=170; cTop='#cbd5e1'; cBot='#f8fafc'; extra="<ellipse cx='160' cy='42' rx='6' ry='12' fill='#fbbf24' opacity='0.8'/>"; break;
-                case 'sarago': rx=65; ry=35; eyeX=145; mouthX=165; cTop='#cbd5e1'; cBot='#f1f5f9'; extra="<path d='M80 15 L80 85 M100 15 L100 85 M120 18 L120 82' stroke='#1e293b' stroke-width='6' opacity='0.7'/>"; break;
-                case 'dentice': rx=75; ry=30; eyeX=155; mouthX=175; cTop='#fca5a5'; cBot='#fee2e2'; fCol='#f87171'; extra="<path d='M175 45 L172 48' stroke='white' stroke-width='2'/>"; break;
-                case 'cernia': rx=70; ry=35; eyeX=150; mouthX=170; mouthY=48; cTop='#78350f'; cBot='#b45309'; fCol='#451a03'; tail='30,50 10,25 5,50 10,75'; extra="<circle cx='90' cy='40' r='3' fill='#fcd34d' opacity='0.6'/><circle cx='110' cy='60' r='4' fill='#fcd34d' opacity='0.6'/><circle cx='60' cy='50' r='2' fill='#fcd34d' opacity='0.6'/>"; break;
-                case 'ricciola': rx=90; ry=25; eyeX=170; mouthX=190; cTop='#94a3b8'; cBot='#f8fafc'; fCol='#cbd5e1'; tail='30,50 0,10 15,50 0,90'; extra="<path d='M40 50 Q100 45 170 45' stroke='#fde047' stroke-width='5' opacity='0.9' fill='none'/>"; break;
-                case 'corvina': rx=70; ry=30; eyeX=150; mouthX=170; cTop='#451a03'; cBot='#78350f'; fCol='#fbbf24'; dorsal='50,25 90,5 130,25'; break;
-                case 'dorata': rx=70; ry=32; eyeX=150; mouthX=170; cTop='#b45309'; cBot='#f59e0b'; fCol='#78350f'; tail='30,50 10,25 5,50 10,75'; extra="<path d='M50 30 Q100 30 150 40 M45 50 Q100 50 140 60' stroke='#78350f' stroke-width='4' opacity='0.5' fill='none'/>"; break;
-                case 'dotto': rx=75; ry=28; eyeX=155; mouthX=175; cTop='#3f3f46'; cBot='#71717a'; fCol='#27272a'; tail='30,50 10,25 5,50 10,75'; break;
-                case 'pappagallo': rx=65; ry=30; eyeX=145; mouthX=165; cTop='#ef4444'; cBot='#fde047'; fCol='#3b82f6'; extra="<path d='M165 45 Q160 50 165 55 Z' fill='#f8fafc' stroke='#1e293b'/>"; break;
-                case 'leccia': rx=75; ry=35; eyeX=155; mouthX=175; cTop='#cbd5e1'; cBot='#ffffff'; fCol='#94a3b8'; tail='30,50 -5,5 15,50 -5,95'; dorsal='90,15 110,5 120,15'; break;
-                case 'cefalo': rx=85; ry=20; eyeX=165; mouthX=185; cTop='#64748b'; cBot='#cbd5e1'; fCol='#94a3b8'; break;
-            }
-            let svgStr = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 100'><defs><linearGradient id='grad${type}' x1='0%' y1='0%' x2='0%' y2='100%'><stop offset='0%' style='stop-color:${cTop};stop-opacity:1' /><stop offset='100%' style='stop-color:${cBot};stop-opacity:1' /></linearGradient></defs><polygon points='${tail}' fill='url(#grad${type})' stroke='#1e293b' stroke-width='2'/><polygon points='${dorsal}' fill='${fCol}' stroke='#1e293b' stroke-width='2'/><polygon points='60,75 80,90 90,75' fill='${fCol}' stroke='#1e293b' stroke-width='2'/><ellipse cx='100' cy='50' rx='${rx}' ry='${ry}' fill='url(#grad${type})' stroke='#1e293b' stroke-width='2'/>${extra}<circle cx='${eyeX}' cy='${eyeY}' r='4' fill='#f8fafc' stroke='#1e293b' stroke-width='1'/><circle cx='${eyeX+1}' cy='${eyeY}' r='1.5' fill='#0f172a'/><path d='M${mouthX} ${mouthY} Q${mouthX-5} ${mouthY+3} ${mouthX} ${mouthY+8}' stroke='#1e293b' stroke-width='2' fill='none'/><path d='M125 55 Q110 65 115 50 Z' fill='${fCol}' stroke='#1e293b' stroke-width='1'/></svg>`;
-            return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
-        }
+        loadSavedSpots(); // Inizializzazione Lista Globale 
 
         const fishDatabase = [
-            { name: "Spigola (Branzino)", depth: "0 - 15m", period: "Autunno / Inverno", habitat: "Risacca, foci dei fiumi, porti.", size: "25 cm", tactic: "Agguato in schiuma.", imageUrl: getFishSVG('spigola') },
-            { name: "Orata", depth: "1 - 30m", period: "Primavera / Autunno", habitat: "Distese di sabbia e fango.", size: "20 cm", tactic: "Aspetto nascosto sul fondo.", imageUrl: getFishSVG('orata') },
-            { name: "Sarago Maggiore", depth: "0 - 40m", period: "Tutto l'anno", habitat: "Spaccature profonde, franate.", size: "15 cm", tactic: "Pesca in tana, agguato profondo.", imageUrl: getFishSVG('sarago') },
-            { name: "Dentice", depth: "15 - 50m+", period: "Estate / Inizio Autunno", habitat: "Secche al largo, cigliate esposte.", size: "Non spec.", tactic: "Aspetto profondo con immobilismo.", imageUrl: getFishSVG('dentice') },
-            { name: "Cernia Bruna", depth: "10 - 50m+", period: "Piena Estate", habitat: "Grandi tane rocciose, relitti.", size: "45 cm", tactic: "Pesca in tana mirata alla testa.", imageUrl: getFishSVG('cernia') },
-            { name: "Ricciola", depth: "0 - 50m+", period: "Tarda Estate / Autunno", habitat: "Acque libere, promontori.", size: "60 cm", tactic: "Aspetto nel blu, caduta.", imageUrl: getFishSVG('ricciola') },
-            { name: "Corvina", depth: "10 - 40m", period: "Primavera / Estate", habitat: "Grotte ampie, praterie di posidonia.", size: "30 cm", tactic: "Tana o agguato.", imageUrl: getFishSVG('corvina') },
-            { name: "Cernia Dorata", depth: "10 - 50m", period: "Estate / Autunno", habitat: "Scogliere isolate, franate.", size: "45 cm", tactic: "Si stacca dal fondo, ideale caduta.", imageUrl: getFishSVG('dorata') },
-            { name: "Dotto", depth: "15 - 50m+", period: "Estate / Inizio Autunno", habitat: "Cadute nel blu, grandi scogli.", size: "45 cm", tactic: "Diffidente, aspetti lunghi.", imageUrl: getFishSVG('dotto') },
-            { name: "Pesce Pappagallo", depth: "1 - 30m", period: "Estate", habitat: "Fondali rocciosi superficiali.", size: "Nessuna spec.", tactic: "Agguato tra gli scogli in poca acqua.", imageUrl: getFishSVG('pappagallo') },
-            { name: "Leccia", depth: "0 - 20m", period: "Primavera / Fine Estate", habitat: "Foci, coste sabbiose.", size: "60 cm", tactic: "Aspetto dinamico.", imageUrl: getFishSVG('leccia') },
-            { name: "Cefalo (Muggine)", depth: "0 - 10m", period: "Tutto l'anno", habitat: "Acque torbide, porti, foci.", size: "20 cm", tactic: "Agguato in pochissima acqua.", imageUrl: getFishSVG('cefalo') }
+            { name: "Spigola (Branzino)", depth: "0 - 15m", period: "Autunno / Inverno", habitat: "Risacca, foci dei fiumi, porti.", size: "25 cm", tactic: "Agguato in schiuma.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/6/64/Dicentrarchus_labrax.jpg" },
+            { name: "Orata", depth: "1 - 30m", period: "Primavera / Autunno", habitat: "Distese di sabbia e fango.", size: "20 cm", tactic: "Aspetto nascosto sul fondo.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/1/10/Sparus_aurata_01.jpg" },
+            { name: "Sarago Maggiore", depth: "0 - 40m", period: "Tutto l'anno", habitat: "Spaccature profonde, franate.", size: "15 cm", tactic: "Pesca in tana, agguato profondo.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/5/52/Diplodus_sargus_sargus.jpg" },
+            { name: "Dentice", depth: "15 - 50m+", period: "Estate / Inizio Autunno", habitat: "Secche al largo, cigliate esposte.", size: "Non spec.", tactic: "Aspetto profondo con immobilismo.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/5/5e/Dentex_dentex.jpg" },
+            { name: "Cernia Bruna", depth: "10 - 50m+", period: "Piena Estate", habitat: "Grandi tane rocciose, relitti.", size: "45 cm", tactic: "Pesca in tana mirata alla testa.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/a/ad/Epinephelus_marginatus_%28Cernia_bruna_-_Dusky_grouper%29_-_Grotte_di_Lavezzi.jpg" },
+            { name: "Ricciola", depth: "0 - 50m+", period: "Tarda Estate / Autunno", habitat: "Acque libere, promontori.", size: "60 cm", tactic: "Aspetto nel blu, caduta.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/e/e9/Seriola_dumerilii.jpg" },
+            { name: "Corvina", depth: "10 - 40m", period: "Primavera / Estate", habitat: "Grotte ampie, praterie di posidonia.", size: "30 cm", tactic: "Tana o agguato.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/1/12/Sciaena_umbra_1.jpg" },
+            { name: "Cernia Dorata", depth: "10 - 50m", period: "Estate / Autunno", habitat: "Scogliere isolate, franate.", size: "45 cm", tactic: "Si stacca dal fondo, ideale caduta.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/8/8d/Epinephelus_costae.jpg" },
+            { name: "Dotto", depth: "15 - 50m+", period: "Estate / Inizio Autunno", habitat: "Cadute nel blu, grandi scogli.", size: "45 cm", tactic: "Diffidente, aspetti lunghi.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/8/87/Mycteroperca_rubra.jpg" },
+            { name: "Pesce Pappagallo", depth: "1 - 30m", period: "Estate", habitat: "Fondali rocciosi superficiali.", size: "Nessuna spec.", tactic: "Agguato tra gli scogli in poca acqua.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/1/19/Sparisoma_cretense_%28Mediterranean_parrotfish%29.jpg" },
+            { name: "Leccia", depth: "0 - 20m", period: "Primavera / Fine Estate", habitat: "Foci, coste sabbiose.", size: "60 cm", tactic: "Aspetto dinamico.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/d/d7/Lichia_amia1.jpg" },
+            { name: "Cefalo (Muggine)", depth: "0 - 10m", period: "Tutto l'anno", habitat: "Acque torbide, porti, foci.", size: "20 cm", tactic: "Agguato in pochissima acqua.", imageUrl: "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/c/cd/Mugil_cephalus.jpg" }
         ];
 
         function renderFishDatabase() {
@@ -311,7 +374,13 @@
             return { age: age, phase: phase };
         }
 
-        // --- ALGORITMO NEOPRENE (Consulenza Spessore Muta) ---
+        function getTargetSpeciesArray(depth, month) {
+            const isWarm = (month >= 5 && month <= 10);
+            if (depth === "basso") return isWarm ? ["Cefalo", "Sarago", "Spigola", "Salpa"] : ["Spigola", "Polpo", "Cefalo"];
+            else if (depth === "medio") return isWarm ? ["Orata", "Corvina", "Serra", "Dentice"] : ["Sarago", "Tordo", "Corvina"];
+            return isWarm ? ["Dentice", "Ricciola", "Cernia", "Palamita"] : ["Cernia", "Ricciola", "Dentice"];
+        }
+
         function getWetsuitAdvice(tempAvg, depthStr) {
             let thickness = "";
             let t = Math.round(tempAvg);
@@ -360,7 +429,7 @@
             if (currentSpotData.isFallback) {
                 warningBanner = `
                 <div style="background-color: rgba(234, 179, 8, 0.15); border: 1px solid var(--windy-warn); color: var(--windy-warn); padding: 8px; border-radius: 4px; font-size: 11px; margin-bottom: 10px; text-align: left;">
-                    ⚠️ Punto chiuso. Onde stimate in base al vento. Temperatura stimata dall'aria.
+                    ⚠️ Punto chiuso. Onde stimate in base al vento locale. Temperatura stimata dall'aria.
                 </div>`;
             }
 
@@ -376,7 +445,7 @@
                 for(let i = startH; i < endH; i++) { 
                     let w = 0;
                     let wind = currentSpotData.winds[i] || 0;
-                    let tWater = currentSpotData.waterTemps[i] || 20; // Default di sicurezza
+                    let tWater = currentSpotData.waterTemps[i] || 20; 
 
                     if (currentSpotData.isFallback) {
                         if (wind < 5) w = 0.1; else if (wind < 12) w = 0.4; else w = 1.0;
@@ -426,7 +495,6 @@
                     </div>
                     ${warningBanner}
                     
-                    <!-- BOX MUTA TERMICA -->
                     <div style="padding: 8px; border-left: 3px solid var(--windy-warn); background: rgba(234, 179, 8, 0.05); margin-bottom: 15px; text-align: left;">
                         <b style="color:var(--windy-warn);">🌡️ Analisi Termica:</b> <span style="font-size:11px; color:var(--text-main);">${getWetsuitAdvice(totalTempAvg, depth)}</span>
                     </div>
@@ -488,7 +556,6 @@
             `;
         }
 
-        // Radar Onde e Temp Acqua
         async function getValidMarineData(baseLat, baseLng, sDate) {
             const offsets = [[0, 0], [0, -0.05], [0, 0.05], [-0.05, 0], [0.05, 0]];
             for (let off of offsets) {
@@ -565,10 +632,9 @@
                     mData = { hourly: { wave_height: new Array(24).fill(null), wave_direction: new Array(24).fill(null), wave_period: new Array(24).fill(null), ocean_temperature: new Array(24).fill(null) } };
                 }
 
-                // Generazione Array Temperature Acqua Sicuro
                 let waterTemps = mData.hourly.ocean_temperature;
                 if (isFallback || !waterTemps || waterTemps[12] === null) {
-                    waterTemps = wData.hourly.temperature_2m.map(t => t - 3); // Stima termica di fallback
+                    waterTemps = wData.hourly.temperature_2m.map(t => t - 3); 
                 }
 
                 let srTime = "-", ssTime = "-";
@@ -599,6 +665,9 @@
                 buildTimeline(currentSpotData);
                 document.getElementById('forecast-container').style.display = 'block';
                 updateAdvice(); 
+                
+                // Aggiorna visivamente il filtro a 10km dopo aver posizionato il nuovo radar
+                loadSavedSpots();
 
             } catch (error) {
                 document.getElementById('advice-box').innerHTML = "<div class='panel-content' style='text-align:center; color: var(--windy-red); font-size: 11px;'>Errore di rete. Assicurati di essere connesso a Internet.</div>";
